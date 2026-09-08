@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { DateRangeFilter, PageHeader } from "@/components/ui/filters";
 import { LoadingBlock, Panel, StatCard } from "@/components/ui/stat-card";
+import { formatRangeTitle } from "@/lib/dates";
 import {
   BreakdownPie,
   HorizontalBars,
@@ -87,18 +88,18 @@ export function OverviewView() {
         eyebrow="Leadlly metrics"
         title="Platform overview"
         description="Students, teachers, mentors, and institutes in one place."
-      />
-      <DateRangeFilter
-        from={from}
-        to={to}
-        onFrom={setFrom}
-        onTo={setTo}
-        onApply={() => setApplied({ from, to })}
-        onReset={() => {
-          setFrom("");
-          setTo("");
-          setApplied({ from: "", to: "" });
-        }}
+        action={
+          <DateRangeFilter
+            from={from}
+            to={to}
+            className="w-full sm:w-auto"
+            onChange={(nextFrom, nextTo) => {
+              setFrom(nextFrom);
+              setTo(nextTo);
+              setApplied({ from: nextFrom, to: nextTo });
+            }}
+          />
+        }
       />
 
       {error ? (
@@ -164,7 +165,10 @@ export function OverviewView() {
           </div>
 
           <div className="grid gap-3 sm:gap-4 xl:grid-cols-3">
-            <Panel title="Signups · last 24 months" className="xl:col-span-2">
+            <Panel
+              title={`Signups · ${formatRangeTitle(applied.from, applied.to)}`}
+              className="xl:col-span-2"
+            >
               <SignupsChart data={data.charts.signups} />
             </Panel>
             <Panel title="Platform mix">

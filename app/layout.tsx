@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat, MuseoModerno } from "next/font/google";
+import "@daypicker/react/style.css";
 import "./globals.css";
 
 const montserrat = Montserrat({

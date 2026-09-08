@@ -89,6 +89,22 @@ input[type="date"] {
   color: transparent;
 }
 
+.rdp-root {
+  --rdp-accent-color: #5900d9;
+  --rdp-accent-background-color: #efe4ff;
+  --rdp-range_middle-background-color: #efe4ff;
+  --rdp-range_middle-color: #3b008f;
+  --rdp-range_start-background: #5900d9;
+  --rdp-range_end-background: #5900d9;
+  --rdp-range_start-color: #fff;
+  --rdp-range_end-color: #fff;
+  --rdp-today-color: #5900d9;
+  --rdp-day-height: 36px;
+  --rdp-day-width: 36px;
+  --rdp-day_button-height: 34px;
+  --rdp-day_button-width: 34px;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

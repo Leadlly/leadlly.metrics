@@ -120,49 +120,44 @@ export function InstitutesView() {
         title="Institutes"
         description="Coaching institutes, their teachers, batches, and linked students."
         action={
-          <Button onClick={() => setExportOpen(true)} className="w-full sm:w-auto">
+          <Button onClick={() => setExportOpen(true)}>
             <Download className="size-4" />
             Export
           </Button>
         }
       />
-
-      <Panel>
-        <div className="flex flex-col gap-4">
-          <DateRangeFilter
-            from={from}
-            to={to}
-            onFrom={setFrom}
-            onTo={setTo}
-            onApply={() => {
-              setPage(1);
-              setApplied({ from, to, q });
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search name, code, city, or email"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                setPage(1);
+                setApplied({ from, to, q });
+              }
             }}
-            onReset={() => {
-              setFrom("");
-              setTo("");
-              setQ("");
-              setPage(1);
-              setApplied({ from: "", to: "", q: "" });
-            }}
+            className="pl-9"
           />
-          <div className="relative w-full min-w-0">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search name, code, city, or email"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  setPage(1);
-                  setApplied({ from, to, q });
-                }
-              }}
-              className="pl-9"
-            />
-          </div>
         </div>
-      </Panel>
+        <DateRangeFilter
+          from={from}
+          to={to}
+          className="w-auto shrink-0"
+          onChange={(nextFrom, nextTo) => {
+            setFrom(nextFrom);
+            setTo(nextTo);
+            setPage(1);
+            setApplied((current) => ({
+              ...current,
+              from: nextFrom,
+              to: nextTo,
+            }));
+          }}
+        />
+      </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

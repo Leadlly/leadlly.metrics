@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <aside className="hidden flex-col border-r border-white/60 bg-sidebar/90 backdrop-blur lg:flex">
         <div className="flex items-center gap-3 px-6 py-5">
-          <Logo className="size-8" />
+            <Logo className="size-10" />
           <div>
             <p className="font-serif text-lg font-semibold tracking-tight">
               Leadlly

@@ -164,65 +164,57 @@ export function StudentsView() {
         title="Students"
         description="Activity, signups, and user-level data. Filter by created date and export the list."
         action={
-          <Button onClick={() => setExportOpen(true)} className="w-full sm:w-auto">
+          <Button onClick={() => setExportOpen(true)}>
             <Download className="size-4" />
             Export
           </Button>
         }
       />
-
-      <Panel>
-        <div className="flex flex-col gap-4">
-          <DateRangeFilter
-            from={from}
-            to={to}
-            onFrom={setFrom}
-            onTo={setTo}
-            onApply={() => {
-              setPage(1);
-              setApplied({ from, to, q, category });
-            }}
-            onReset={() => {
-              setFrom("");
-              setTo("");
-              setQ("");
-              setCategory("all");
-              setPage(1);
-              setApplied({ from: "", to: "", q: "", category: "all" });
-            }}
-          />
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search name or email"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    setPage(1);
-                    setApplied({ from, to, q, category });
-                  }
-                }}
-                className="pl-9"
-              />
-            </div>
-            <Select
-              value={category}
-              className="sm:w-40"
-              onChange={(e) => {
-                setCategory(e.target.value);
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search name or email"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
                 setPage(1);
-                setApplied({ from, to, q, category: e.target.value });
-              }}
-            >
-              <option value="all">All</option>
-              <option value="free">Free</option>
-              <option value="subscription">Subscription</option>
-            </Select>
-          </div>
+                setApplied({ from, to, q, category });
+              }
+            }}
+            className="pl-9"
+          />
         </div>
-      </Panel>
+        <Select
+          value={category}
+          className="w-32 shrink-0 sm:w-36"
+          onChange={(e) => {
+            setCategory(e.target.value);
+            setPage(1);
+            setApplied({ from, to, q, category: e.target.value });
+          }}
+        >
+          <option value="all">All</option>
+          <option value="free">Free</option>
+          <option value="subscription">Subscription</option>
+        </Select>
+        <DateRangeFilter
+          from={from}
+          to={to}
+          className="w-auto shrink-0"
+          onChange={(nextFrom, nextTo) => {
+            setFrom(nextFrom);
+            setTo(nextTo);
+            setPage(1);
+            setApplied((current) => ({
+              ...current,
+              from: nextFrom,
+              to: nextTo,
+            }));
+          }}
+        />
+      </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

@@ -36,3 +36,11 @@ export function formatDateTime(value?: Date | string | null) {
 export function toISODate(value: Date) {
   return format(value, "yyyy-MM-dd");
 }
+
+export function formatRangeTitle(from?: string | null, to?: string | null) {
+  if (!from && !to) return "all time";
+  if (from && to && from === to) return formatDate(from);
+  if (from && to) return `${formatDate(from)} – ${formatDate(to)}`;
+  if (from) return `from ${formatDate(from)}`;
+  return `until ${formatDate(to)}`;
+}

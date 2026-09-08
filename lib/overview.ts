@@ -1,6 +1,8 @@
 import { getDb, safeCount } from "./mongodb";
 import { daysAgo } from "./dates";
 
+const IST = "Asia/Kolkata";
+
 function lastActivityMatch(since: Date, extra: Record<string, unknown> = {}) {
   return {
     ...extra,
@@ -17,13 +19,105 @@ function mergeGte(createdAt: Record<string, unknown>, gte: Date) {
   return { createdAt: { ...existing, $gte: nextGte } };
 }
 
+function istDateKey(date: Date, grain: "day" | "month") {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: IST,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+  return grain === "month" ? parts.slice(0, 7) : parts;
+}
+
+function trendWindow(createdAt: Record<string, unknown>, now: Date) {
+  const range =
+    (createdAt.createdAt as { $gte?: Date; $lte?: Date } | undefined) || {};
+  const end = range.$lte || now;
+  const start =
+    range.$gte || new Date(now.getFullYear(), now.getMonth() - 23, 1);
+  const spanDays = Math.max(
+    1,
+    Math.round((end.getTime() - start.getTime()) / 86_400_000),
+  );
+  const grain = spanDays <= 90 ? "day" : "month";
+  const match = Object.keys(createdAt).length
+    ? createdAt
+    : { createdAt: { $gte: start } };
+  return { start, end, grain, match };
+}
+
+function dateGroupId(grain: "day" | "month") {
+  const date = { date: "$createdAt", timezone: IST };
+  const id: Record<string, unknown> = {
+    year: { $year: date },
+    month: { $month: date },
+  };
+  if (grain === "day") id.day = { $dayOfMonth: date };
+  return id;
+}
+
+function pad(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function rowKey(
+  row: { _id: { year: number; month: number; day?: number } },
+  grain: "day" | "month",
+) {
+  const year = row._id.year;
+  const month = pad(row._id.month);
+  if (grain === "month") return `${year}-${month}`;
+  return `${year}-${month}-${pad(row._id.day || 1)}`;
+}
+
+function emptyTrendBuckets(
+  start: Date,
+  end: Date,
+  grain: "day" | "month",
+) {
+  const map = new Map<string, { students: number; staff: number }>();
+  if (grain === "day") {
+    for (let t = start.getTime(); t <= end.getTime(); t += 86_400_000) {
+      map.set(istDateKey(new Date(t), "day"), { students: 0, staff: 0 });
+    }
+    map.set(istDateKey(end, "day"), map.get(istDateKey(end, "day")) || {
+      students: 0,
+      staff: 0,
+    });
+    return map;
+  }
+  let cursor = istDateKey(start, "month");
+  const last = istDateKey(end, "month");
+  while (cursor <= last) {
+    map.set(cursor, { students: 0, staff: 0 });
+    const [year, month] = cursor.split("-").map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    cursor = `${nextYear}-${pad(nextMonth)}`;
+  }
+  return map;
+}
+
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function trendLabel(key: string, grain: "day" | "month") {
+  const [year, month, day] = key.split("-").map(Number);
+  if (grain === "day") {
+    return `${pad(day)} ${MONTHS[month - 1]}`;
+  }
+  return `${MONTHS[month - 1]} ${String(year).slice(2)}`;
+}
+
 export async function getOverview(createdAt: Record<string, unknown>) {
   const db = await getDb();
   const now = new Date();
   const d1 = daysAgo(1);
   const d7 = daysAgo(7);
   const d30 = daysAgo(30);
-  const trendStart = new Date(now.getFullYear() - 3, now.getMonth(), 1);
+  const trend = trendWindow(createdAt, now);
 
   const users = db.collection("users");
   const mentors = db.collection("mentors");
@@ -113,67 +207,53 @@ export async function getOverview(createdAt: Record<string, unknown>) {
       .toArray(),
     users
       .aggregate([
-        { $match: { createdAt: { $gte: trendStart } } },
+        { $match: trend.match },
         {
           $group: {
-            _id: {
-              year: { $year: "$createdAt" },
-              month: { $month: "$createdAt" },
-            },
+            _id: dateGroupId(trend.grain),
             count: { $sum: 1 },
           },
         },
-        { $sort: { "_id.year": 1, "_id.month": 1 } },
+        { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
       ])
       .toArray(),
     mentors
       .aggregate([
-        { $match: { createdAt: { $gte: trendStart } } },
+        { $match: trend.match },
         {
           $group: {
-            _id: {
-              year: { $year: "$createdAt" },
-              month: { $month: "$createdAt" },
-            },
+            _id: dateGroupId(trend.grain),
             count: { $sum: 1 },
           },
         },
-        { $sort: { "_id.year": 1, "_id.month": 1 } },
+        { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
       ])
       .toArray(),
   ]);
 
-  const monthNames = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  const trendMap = new Map<string, { students: number; staff: number }>();
-  for (let i = 23; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    trendMap.set(`${d.getFullYear()}-${d.getMonth() + 1}`, {
-      students: 0,
-      staff: 0,
-    });
-  }
+  const trendMap = emptyTrendBuckets(trend.start, trend.end, trend.grain);
   for (const row of signupTrend) {
-    const key = `${row._id.year}-${row._id.month}`;
+    const key = rowKey(
+      row as { _id: { year: number; month: number; day?: number } },
+      trend.grain,
+    );
     const current = trendMap.get(key);
     if (current) current.students = row.count as number;
   }
   for (const row of teacherSignupTrend) {
-    const key = `${row._id.year}-${row._id.month}`;
+    const key = rowKey(
+      row as { _id: { year: number; month: number; day?: number } },
+      trend.grain,
+    );
     const current = trendMap.get(key);
     if (current) current.staff = row.count as number;
   }
 
-  const signups = Array.from(trendMap.entries()).map(([key, value]) => {
-    const [year, month] = key.split("-").map(Number);
-    return {
-      label: `${monthNames[month - 1]} ${String(year).slice(2)}`,
-      students: value.students,
-      staff: value.staff,
-    };
-  });
+  const signups = Array.from(trendMap.entries()).map(([key, value]) => ({
+    label: trendLabel(key, trend.grain),
+    students: value.students,
+    staff: value.staff,
+  }));
 
   return {
     generatedAt: now.toISOString(),
