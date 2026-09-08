@@ -19,7 +19,9 @@ function mergeGte(createdAt: Record<string, unknown>, gte: Date) {
   return { createdAt: { ...existing, $gte: nextGte } };
 }
 
-function istDateKey(date: Date, grain: "day" | "month") {
+type DateGrain = "day" | "month";
+
+function istDateKey(date: Date, grain: DateGrain) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: IST,
     year: "numeric",
@@ -39,14 +41,14 @@ function trendWindow(createdAt: Record<string, unknown>, now: Date) {
     1,
     Math.round((end.getTime() - start.getTime()) / 86_400_000),
   );
-  const grain = spanDays <= 90 ? "day" : "month";
+  const grain: DateGrain = spanDays <= 90 ? "day" : "month";
   const match = Object.keys(createdAt).length
     ? createdAt
     : { createdAt: { $gte: start } };
   return { start, end, grain, match };
 }
 
-function dateGroupId(grain: "day" | "month") {
+function dateGroupId(grain: DateGrain) {
   const date = { date: "$createdAt", timezone: IST };
   const id: Record<string, unknown> = {
     year: { $year: date },
@@ -62,7 +64,7 @@ function pad(value: number) {
 
 function rowKey(
   row: { _id: { year: number; month: number; day?: number } },
-  grain: "day" | "month",
+  grain: DateGrain,
 ) {
   const year = row._id.year;
   const month = pad(row._id.month);
@@ -73,7 +75,7 @@ function rowKey(
 function emptyTrendBuckets(
   start: Date,
   end: Date,
-  grain: "day" | "month",
+  grain: DateGrain,
 ) {
   const map = new Map<string, { students: number; staff: number }>();
   if (grain === "day") {
@@ -103,7 +105,7 @@ const MONTHS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-function trendLabel(key: string, grain: "day" | "month") {
+function trendLabel(key: string, grain: DateGrain) {
   const [year, month, day] = key.split("-").map(Number);
   if (grain === "day") {
     return `${pad(day)} ${MONTHS[month - 1]}`;
