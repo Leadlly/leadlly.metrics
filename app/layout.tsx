@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Montserrat, MuseoModerno } from "next/font/google";
 import "./globals.css";
 
@@ -20,13 +20,19 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${montserrat.variable} ${museoModerno.variable} h-full antialiased`}
+      className={`${montserrat.variable} ${museoModerno.variable} h-full overflow-x-clip antialiased`}
     >
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full overflow-x-clip font-sans">{children}</body>
     </html>
   );
 }

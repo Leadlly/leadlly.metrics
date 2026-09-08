@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Download, Search } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 import { INSTITUTE_EXPORT_FIELDS } from "@/lib/fields";
-import { DateRangeFilter, Pagination } from "@/components/ui/filters";
+import { DateRangeFilter, PageHeader, Pagination } from "@/components/ui/filters";
 import { downloadExport, ExportDialog } from "@/components/ui/export-dialog";
 import { Button, Input } from "@/components/ui/primitives";
-import { EmptyState, Panel, StatCard } from "@/components/ui/stat-card";
+import { EmptyState, MetaRow, Panel, StatCard } from "@/components/ui/stat-card";
 
 type Institute = {
   id: string;
@@ -80,24 +80,18 @@ export function InstitutesView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">
-            Institute portal
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Institutes
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Coaching institutes, their teachers, batches, and linked students.
-          </p>
-        </div>
-        <Button onClick={() => setExportOpen(true)}>
-          <Download className="size-4" />
-          Export
-        </Button>
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        eyebrow="Institute portal"
+        title="Institutes"
+        description="Coaching institutes, their teachers, batches, and linked students."
+        action={
+          <Button onClick={() => setExportOpen(true)} className="w-full sm:w-auto">
+            <Download className="size-4" />
+            Export
+          </Button>
+        }
+      />
 
       <Panel>
         <div className="flex flex-col gap-4">
@@ -118,7 +112,7 @@ export function InstitutesView() {
               setApplied({ from: "", to: "", q: "" });
             }}
           />
-          <div className="relative max-w-md">
+          <div className="relative w-full min-w-0">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search name, code, city, or email"
@@ -138,7 +132,7 @@ export function InstitutesView() {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label="Institutes" value={data?.stats.total ?? 0} />
         <StatCard label="Admins" value={data?.stats.admins ?? 0} />
         <StatCard label="Batches" value={data?.stats.batches ?? 0} />
@@ -146,8 +140,37 @@ export function InstitutesView() {
       </div>
 
       <Panel title="Institute list">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+        <div className="space-y-3 md:hidden">
+          {loading ? (
+            <EmptyState message="Loading institutes…" />
+          ) : data?.rows.length ? (
+            data.rows.map((row) => (
+              <article
+                key={row.id}
+                className="space-y-2 rounded-2xl border border-border/80 bg-white p-3"
+              >
+                <div>
+                  <p className="font-medium">{row.name || "—"}</p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {row.instituteCode || "No code"}
+                  </p>
+                </div>
+                <MetaRow label="Location">
+                  {[row.city, row.state].filter(Boolean).join(", ") || "—"}
+                </MetaRow>
+                <MetaRow label="Contact">{row.contactNumber || "—"}</MetaRow>
+                <MetaRow label="Students">{row.students}</MetaRow>
+                <MetaRow label="Teachers">{row.teachers}</MetaRow>
+                <MetaRow label="Batches">{row.batches}</MetaRow>
+              </article>
+            ))
+          ) : (
+            <EmptyState message="No institutes in this range." />
+          )}
+        </div>
+
+        <div className="-mx-4 hidden overflow-x-auto md:mx-0 md:block">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">
                 <th className="pb-3 font-medium">Institute</th>

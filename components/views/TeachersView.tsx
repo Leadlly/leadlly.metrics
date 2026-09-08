@@ -5,10 +5,10 @@ import { Download, Search } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 import { TEACHER_EXPORT_FIELDS } from "@/lib/fields";
 import { fullName } from "@/lib/utils";
-import { DateRangeFilter, Pagination } from "@/components/ui/filters";
+import { DateRangeFilter, PageHeader, Pagination } from "@/components/ui/filters";
 import { downloadExport, ExportDialog } from "@/components/ui/export-dialog";
 import { Badge, Button, Input, Select } from "@/components/ui/primitives";
-import { EmptyState, Panel, StatCard } from "@/components/ui/stat-card";
+import { EmptyState, MetaRow, Panel, StatCard } from "@/components/ui/stat-card";
 
 type Teacher = {
   id: string;
@@ -96,25 +96,18 @@ export function TeachersView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">
-            Mentor platform
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Teachers & mentors
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Staff onboarded on the mentor platform, with role, verification, and
-            student load.
-          </p>
-        </div>
-        <Button onClick={() => setExportOpen(true)}>
-          <Download className="size-4" />
-          Export
-        </Button>
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        eyebrow="Mentor platform"
+        title="Teachers & mentors"
+        description="Staff onboarded on the mentor platform, with role, verification, and student load."
+        action={
+          <Button onClick={() => setExportOpen(true)} className="w-full sm:w-auto">
+            <Download className="size-4" />
+            Export
+          </Button>
+        }
+      />
 
       <Panel>
         <div className="flex flex-col gap-4">
@@ -136,8 +129,8 @@ export function TeachersView() {
               setApplied({ from: "", to: "", q: "", role: "all" });
             }}
           />
-          <div className="flex flex-wrap gap-3">
-            <div className="relative min-w-[240px] flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search name, email, or teacher code"
@@ -154,6 +147,7 @@ export function TeachersView() {
             </div>
             <Select
               value={role}
+              className="sm:w-40"
               onChange={(e) => {
                 setRole(e.target.value);
                 setPage(1);
@@ -170,7 +164,7 @@ export function TeachersView() {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
         <StatCard label="All staff" value={data?.stats.total ?? 0} />
         <StatCard label="Teachers" value={data?.stats.teachers ?? 0} />
         <StatCard label="Mentors" value={data?.stats.mentors ?? 0} />
@@ -179,8 +173,53 @@ export function TeachersView() {
       </div>
 
       <Panel title="Staff list">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+        <div className="space-y-3 md:hidden">
+          {loading ? (
+            <EmptyState message="Loading staff…" />
+          ) : data?.rows.length ? (
+            data.rows.map((row) => (
+              <article
+                key={row.id}
+                className="space-y-2 rounded-2xl border border-border/80 bg-white p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {fullName(row.firstname, row.lastname)}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {row.email}
+                    </p>
+                  </div>
+                  <Badge tone={row.role === "mentor" ? "blue" : "purple"}>
+                    {row.role || "teacher"}
+                  </Badge>
+                </div>
+                <MetaRow label="Status">
+                  <Badge
+                    tone={
+                      row.isBlocked
+                        ? "red"
+                        : row.status === "Verified"
+                          ? "green"
+                          : "amber"
+                    }
+                  >
+                    {row.isBlocked ? "Blocked" : row.status}
+                  </Badge>
+                </MetaRow>
+                <MetaRow label="Students">{row.studentCount}</MetaRow>
+                <MetaRow label="Institutes">{row.instituteCount}</MetaRow>
+                <MetaRow label="Created">{formatDate(row.createdAt)}</MetaRow>
+              </article>
+            ))
+          ) : (
+            <EmptyState message="No teachers or mentors in this range." />
+          )}
+        </div>
+
+        <div className="-mx-4 hidden overflow-x-auto md:mx-0 md:block">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">
                 <th className="pb-3 font-medium">Name</th>

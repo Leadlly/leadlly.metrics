@@ -35,10 +35,10 @@ export function ExportDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4">
+      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white p-5 shadow-xl sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <h3 className="text-lg font-semibold">Export list</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               Choose fields and file format. Filters currently applied on the
@@ -47,7 +47,7 @@ export function ExportDialog({
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
+            className="shrink-0 text-sm text-muted-foreground hover:text-foreground"
           >
             Close
           </button>
@@ -66,7 +66,7 @@ export function ExportDialog({
           </Button>
         </div>
 
-        <div className="mt-4 grid max-h-64 grid-cols-2 gap-2 overflow-auto rounded-2xl border border-border p-3">
+        <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-auto rounded-2xl border border-border p-3 sm:grid-cols-2">
           {fields.map((field) => (
             <label key={field.key} className="flex items-center gap-2 text-sm">
               <input
@@ -79,7 +79,7 @@ export function ExportDialog({
           ))}
         </div>
 
-        <div className="mt-4 flex items-center gap-4 text-sm">
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
           <label className="flex items-center gap-2">
             <input
               type="radio"
@@ -98,11 +98,12 @@ export function ExportDialog({
           </label>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={onClose}>
             Cancel
           </Button>
           <Button
+            className="w-full sm:w-auto"
             disabled={!selected.length || loading}
             onClick={() => onExport(selected, format)}
           >

@@ -23,9 +23,9 @@ export function SignupsChart({
   data: Array<{ label: string; students: number; staff: number }>;
 }) {
   return (
-    <div className="h-72">
+    <div className="h-52 w-full min-w-0 sm:h-72">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data}>
+        <AreaChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
           <defs>
             <linearGradient id="studentsFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#5900d9" stopOpacity={0.28} />
@@ -37,8 +37,13 @@ export function SignupsChart({
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-          <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 10 }}
+            minTickGap={24}
+            interval="preserveStartEnd"
+          />
+          <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={36} />
           <Tooltip />
           <Area
             type="monotone"
@@ -68,29 +73,31 @@ export function BreakdownPie({
   data: Array<{ name: string; value: number }>;
 }) {
   return (
-    <div className="h-72">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            innerRadius={58}
-            outerRadius={88}
-            paddingAngle={3}
-          >
-            {data.map((_, index) => (
-              <Cell key={index} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip />
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="mt-2 flex flex-wrap justify-center gap-3 text-xs">
+    <div className="min-w-0">
+      <div className="h-48 w-full sm:h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              innerRadius={48}
+              outerRadius={72}
+              paddingAngle={3}
+            >
+              {data.map((_, index) => (
+                <Cell key={index} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">
         {data.map((item, index) => (
           <span key={item.name} className="flex items-center gap-1.5">
             <span
-              className="size-2 rounded-full"
+              className="size-2 shrink-0 rounded-full"
               style={{ background: COLORS[index % COLORS.length] }}
             />
             {item.name}
@@ -107,16 +114,16 @@ export function HorizontalBars({
   data: Array<{ name: string; value: number }>;
 }) {
   return (
-    <div className="h-72">
+    <div className="h-52 w-full min-w-0 sm:h-72">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} layout="vertical" margin={{ left: 24 }}>
+        <BarChart data={data} layout="vertical" margin={{ left: 4, right: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-          <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+          <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
           <YAxis
             type="category"
             dataKey="name"
-            tick={{ fontSize: 11 }}
-            width={90}
+            tick={{ fontSize: 10 }}
+            width={72}
           />
           <Tooltip />
           <Bar dataKey="value" name="Users" fill="#5900d9" radius={[0, 8, 8, 0]} />

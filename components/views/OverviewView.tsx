@@ -9,7 +9,7 @@ import {
   Users,
   UserCheck,
 } from "lucide-react";
-import { DateRangeFilter } from "@/components/ui/filters";
+import { DateRangeFilter, PageHeader } from "@/components/ui/filters";
 import { LoadingBlock, Panel, StatCard } from "@/components/ui/stat-card";
 import {
   BreakdownPie,
@@ -82,32 +82,24 @@ export function OverviewView() {
   }, [load]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">
-            Leadlly metrics
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Platform overview
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Students, teachers, mentors, and institutes in one place.
-          </p>
-        </div>
-        <DateRangeFilter
-          from={from}
-          to={to}
-          onFrom={setFrom}
-          onTo={setTo}
-          onApply={() => setApplied({ from, to })}
-          onReset={() => {
-            setFrom("");
-            setTo("");
-            setApplied({ from: "", to: "" });
-          }}
-        />
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        eyebrow="Leadlly metrics"
+        title="Platform overview"
+        description="Students, teachers, mentors, and institutes in one place."
+      />
+      <DateRangeFilter
+        from={from}
+        to={to}
+        onFrom={setFrom}
+        onTo={setTo}
+        onApply={() => setApplied({ from, to })}
+        onReset={() => {
+          setFrom("");
+          setTo("");
+          setApplied({ from: "", to: "" });
+        }}
+      />
 
       {error ? (
         <Panel>
@@ -119,7 +111,7 @@ export function OverviewView() {
         <LoadingBlock />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <StatCard
               label="Students"
               value={data.totals.students}
@@ -146,7 +138,7 @@ export function OverviewView() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <StatCard
               label="Paid / subscribed"
               value={data.students.paid}
@@ -171,7 +163,7 @@ export function OverviewView() {
             />
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 xl:grid-cols-3">
             <Panel title="Signups · last 24 months" className="xl:col-span-2">
               <SignupsChart data={data.charts.signups} />
             </Panel>
@@ -180,7 +172,7 @@ export function OverviewView() {
             </Panel>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
             <Panel title="Students by plan">
               <BreakdownPie data={data.charts.categories} />
             </Panel>

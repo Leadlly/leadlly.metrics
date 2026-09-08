@@ -38,10 +38,10 @@ export function SignInForm() {
   }
 
   return (
-    <div className="grid-wash flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-sm backdrop-blur">
+    <div className="grid-wash flex min-h-dvh items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md rounded-3xl border border-white/70 bg-white/85 p-5 shadow-sm backdrop-blur sm:rounded-[2rem] sm:p-8">
         <div className="flex flex-col items-center text-center">
-          <LogoFull className="h-8 w-auto" />
+          <LogoFull className="h-7 w-auto max-w-full sm:h-8" />
           <p className="mt-4 text-xs font-semibold tracking-[0.2em] text-primary uppercase">
             Metrics
           </p>

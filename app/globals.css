@@ -68,7 +68,12 @@ body {
   background: linear-gradient(to right, #fef5eb, #ece4fb);
   color: var(--foreground);
   font-family: var(--font-sans);
-  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+input[type="date"] {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .grid-wash {
