@@ -4,13 +4,16 @@ export function Button({
   className,
   variant = "primary",
   size = "md",
+  ref,
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "outline" | "ghost" | "secondary";
   size?: "sm" | "md" | "lg";
+  ref?: React.Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={ref}
       className={cn(
         "inline-flex cursor-pointer items-center justify-center gap-2 font-medium transition-all disabled:pointer-events-none disabled:opacity-50",
         variant === "primary" &&

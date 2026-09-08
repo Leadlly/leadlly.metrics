@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Download, Search } from "lucide-react";
-import { formatDate } from "@/lib/dates";
+import { INSTITUTE_TABLE_COLUMNS } from "@/lib/columns";
+import { displayDateValue, displayValue } from "@/lib/display";
 import { INSTITUTE_EXPORT_FIELDS } from "@/lib/fields";
+import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { DateRangeFilter, PageHeader, Pagination } from "@/components/ui/filters";
 import { downloadExport, ExportDialog } from "@/components/ui/export-dialog";
+import { ColumnPicker } from "@/components/ui/column-picker";
 import { Button, Input } from "@/components/ui/primitives";
 import { EmptyState, MetaRow, Panel, StatCard } from "@/components/ui/stat-card";
 
@@ -17,11 +20,40 @@ type Institute = {
   contactNumber: string;
   city: string;
   state: string;
+  website?: string;
   students: number;
   teachers: number;
   batches: number;
   createdAt?: string;
 };
+
+function InstituteIdentity({ row }: { row: Institute }) {
+  return (
+    <div className="min-w-0">
+      <p className="font-medium">{row.name || "—"}</p>
+      <p className="truncate text-xs text-muted-foreground">
+        {row.email || "No email"}
+      </p>
+    </div>
+  );
+}
+
+function InstituteCell({ columnKey, row }: { columnKey: string; row: Institute }) {
+  switch (columnKey) {
+    case "name":
+      return <InstituteIdentity row={row} />;
+    case "instituteCode":
+      return <span className="font-mono text-xs">{row.instituteCode || "—"}</span>;
+    case "location":
+      return <>{[row.city, row.state].filter(Boolean).join(", ") || "—"}</>;
+    case "createdAt":
+      return (
+        <span className="text-muted-foreground">{displayDateValue(row.createdAt)}</span>
+      );
+    default:
+      return displayValue((row as Record<string, unknown>)[columnKey]);
+  }
+}
 
 type Payload = {
   total: number;
@@ -42,6 +74,7 @@ export function InstitutesView() {
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const columns = useColumnPrefs("institutes", INSTITUTE_TABLE_COLUMNS);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -139,7 +172,19 @@ export function InstitutesView() {
         <StatCard label="Classes" value={data?.stats.classes ?? 0} />
       </div>
 
-      <Panel title="Institute list">
+      <Panel
+        title="Institute list"
+        action={
+          <ColumnPicker
+            catalog={INSTITUTE_TABLE_COLUMNS}
+            order={columns.prefs.order}
+            visible={columns.prefs.visible}
+            onToggle={columns.toggle}
+            onReorder={columns.reorder}
+            onReset={columns.reset}
+          />
+        }
+      >
         <div className="space-y-3 md:hidden">
           {loading ? (
             <EmptyState message="Loading institutes…" />
@@ -149,19 +194,16 @@ export function InstitutesView() {
                 key={row.id}
                 className="space-y-2 rounded-2xl border border-border/80 bg-white p-3"
               >
-                <div>
-                  <p className="font-medium">{row.name || "—"}</p>
-                  <p className="font-mono text-xs text-muted-foreground">
-                    {row.instituteCode || "No code"}
-                  </p>
-                </div>
-                <MetaRow label="Location">
-                  {[row.city, row.state].filter(Boolean).join(", ") || "—"}
-                </MetaRow>
-                <MetaRow label="Contact">{row.contactNumber || "—"}</MetaRow>
-                <MetaRow label="Students">{row.students}</MetaRow>
-                <MetaRow label="Teachers">{row.teachers}</MetaRow>
-                <MetaRow label="Batches">{row.batches}</MetaRow>
+                {columns.visibleColumns.some((column) => column.key === "name") ? (
+                  <InstituteIdentity row={row} />
+                ) : null}
+                {columns.visibleColumns
+                  .filter((column) => column.key !== "name")
+                  .map((column) => (
+                    <MetaRow key={column.key} label={column.label}>
+                      <InstituteCell columnKey={column.key} row={row} />
+                    </MetaRow>
+                  ))}
               </article>
             ))
           ) : (
@@ -170,49 +212,42 @@ export function InstitutesView() {
         </div>
 
         <div className="-mx-4 hidden overflow-x-auto md:mx-0 md:block">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table
+            className="w-full text-left text-sm"
+            style={{ minWidth: Math.max(520, columns.visibleColumns.length * 130) }}
+          >
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">
-                <th className="pb-3 font-medium">Institute</th>
-                <th className="pb-3 font-medium">Code</th>
-                <th className="pb-3 font-medium">Location</th>
-                <th className="pb-3 font-medium">Contact</th>
-                <th className="pb-3 font-medium">Students</th>
-                <th className="pb-3 font-medium">Teachers</th>
-                <th className="pb-3 font-medium">Batches</th>
-                <th className="pb-3 font-medium">Created</th>
+                {columns.visibleColumns.map((column) => (
+                  <th key={column.key} className="pb-3 font-medium">
+                    {column.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <td
+                    colSpan={columns.visibleColumns.length}
+                    className="py-10 text-center text-muted-foreground"
+                  >
                     Loading institutes…
                   </td>
                 </tr>
               ) : data?.rows.length ? (
                 data.rows.map((row) => (
                   <tr key={row.id} className="border-b border-border/60 last:border-0">
-                    <td className="py-3">
-                      <p className="font-medium">{row.name || "—"}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {row.email || "No email"}
-                      </p>
-                    </td>
-                    <td className="font-mono text-xs">{row.instituteCode || "—"}</td>
-                    <td>
-                      {[row.city, row.state].filter(Boolean).join(", ") || "—"}
-                    </td>
-                    <td>{row.contactNumber || "—"}</td>
-                    <td>{row.students}</td>
-                    <td>{row.teachers}</td>
-                    <td>{row.batches}</td>
-                    <td className="text-muted-foreground">{formatDate(row.createdAt)}</td>
+                    {columns.visibleColumns.map((column) => (
+                      <td key={column.key} className="py-3 align-top">
+                        <InstituteCell columnKey={column.key} row={row} />
+                      </td>
+                    ))}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={columns.visibleColumns.length}>
                     <EmptyState message="No institutes in this range." />
                   </td>
                 </tr>

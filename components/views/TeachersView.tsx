@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Download, Search } from "lucide-react";
-import { formatDate } from "@/lib/dates";
+import { TEACHER_TABLE_COLUMNS } from "@/lib/columns";
+import { displayDateValue, displayValue } from "@/lib/display";
 import { TEACHER_EXPORT_FIELDS } from "@/lib/fields";
 import { fullName } from "@/lib/utils";
+import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { DateRangeFilter, PageHeader, Pagination } from "@/components/ui/filters";
 import { downloadExport, ExportDialog } from "@/components/ui/export-dialog";
+import { ColumnPicker } from "@/components/ui/column-picker";
 import { Badge, Button, Input, Select } from "@/components/ui/primitives";
 import { EmptyState, MetaRow, Panel, StatCard } from "@/components/ui/stat-card";
 
@@ -40,6 +43,51 @@ type Payload = {
   rows: Teacher[];
 };
 
+function TeacherIdentity({ row }: { row: Teacher }) {
+  return (
+    <div className="min-w-0">
+      <p className="font-medium">{fullName(row.firstname, row.lastname)}</p>
+      <p className="truncate text-xs text-muted-foreground">{row.email}</p>
+      {row.phone ? (
+        <p className="text-xs text-muted-foreground">{row.phone}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function statusTone(row: Teacher) {
+  if (row.isBlocked) return "red" as const;
+  if (row.status === "Verified") return "green" as const;
+  return "amber" as const;
+}
+
+function TeacherCell({ columnKey, row }: { columnKey: string; row: Teacher }) {
+  switch (columnKey) {
+    case "name":
+      return <TeacherIdentity row={row} />;
+    case "role":
+      return (
+        <Badge tone={row.role === "mentor" ? "blue" : "purple"}>
+          {row.role || "teacher"}
+        </Badge>
+      );
+    case "status":
+      return (
+        <Badge tone={statusTone(row)}>
+          {row.isBlocked ? "Blocked" : row.status}
+        </Badge>
+      );
+    case "subjects":
+      return <span className="max-w-[180px] truncate">{row.subjects || "—"}</span>;
+    case "createdAt":
+      return (
+        <span className="text-muted-foreground">{displayDateValue(row.createdAt)}</span>
+      );
+    default:
+      return displayValue((row as Record<string, unknown>)[columnKey]);
+  }
+}
+
 export function TeachersView() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -57,6 +105,7 @@ export function TeachersView() {
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const columns = useColumnPrefs("teachers", TEACHER_TABLE_COLUMNS);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -172,7 +221,19 @@ export function TeachersView() {
         <StatCard label="Blocked" value={data?.stats.blocked ?? 0} />
       </div>
 
-      <Panel title="Staff list">
+      <Panel
+        title="Staff list"
+        action={
+          <ColumnPicker
+            catalog={TEACHER_TABLE_COLUMNS}
+            order={columns.prefs.order}
+            visible={columns.prefs.visible}
+            onToggle={columns.toggle}
+            onReorder={columns.reorder}
+            onReset={columns.reset}
+          />
+        }
+      >
         <div className="space-y-3 md:hidden">
           {loading ? (
             <EmptyState message="Loading staff…" />
@@ -182,35 +243,29 @@ export function TeachersView() {
                 key={row.id}
                 className="space-y-2 rounded-2xl border border-border/80 bg-white p-3"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium">
-                      {fullName(row.firstname, row.lastname)}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {row.email}
-                    </p>
+                {columns.visibleColumns.some((column) => column.key === "name") ? (
+                  <div className="flex items-start justify-between gap-2">
+                    <TeacherIdentity row={row} />
+                    {columns.visibleColumns.some((column) => column.key === "role") ? (
+                      <TeacherCell columnKey="role" row={row} />
+                    ) : null}
                   </div>
-                  <Badge tone={row.role === "mentor" ? "blue" : "purple"}>
-                    {row.role || "teacher"}
-                  </Badge>
-                </div>
-                <MetaRow label="Status">
-                  <Badge
-                    tone={
-                      row.isBlocked
-                        ? "red"
-                        : row.status === "Verified"
-                          ? "green"
-                          : "amber"
-                    }
-                  >
-                    {row.isBlocked ? "Blocked" : row.status}
-                  </Badge>
-                </MetaRow>
-                <MetaRow label="Students">{row.studentCount}</MetaRow>
-                <MetaRow label="Institutes">{row.instituteCount}</MetaRow>
-                <MetaRow label="Created">{formatDate(row.createdAt)}</MetaRow>
+                ) : (
+                  columns.visibleColumns
+                    .filter((column) => column.key === "role")
+                    .map((column) => (
+                      <MetaRow key={column.key} label={column.label}>
+                        <TeacherCell columnKey={column.key} row={row} />
+                      </MetaRow>
+                    ))
+                )}
+                {columns.visibleColumns
+                  .filter((column) => column.key !== "name" && column.key !== "role")
+                  .map((column) => (
+                    <MetaRow key={column.key} label={column.label}>
+                      <TeacherCell columnKey={column.key} row={row} />
+                    </MetaRow>
+                  ))}
               </article>
             ))
           ) : (
@@ -219,64 +274,42 @@ export function TeachersView() {
         </div>
 
         <div className="-mx-4 hidden overflow-x-auto md:mx-0 md:block">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table
+            className="w-full text-left text-sm"
+            style={{ minWidth: Math.max(520, columns.visibleColumns.length * 130) }}
+          >
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">
-                <th className="pb-3 font-medium">Name</th>
-                <th className="pb-3 font-medium">Role</th>
-                <th className="pb-3 font-medium">Status</th>
-                <th className="pb-3 font-medium">Subjects</th>
-                <th className="pb-3 font-medium">Students</th>
-                <th className="pb-3 font-medium">Institutes</th>
-                <th className="pb-3 font-medium">Created</th>
+                {columns.visibleColumns.map((column) => (
+                  <th key={column.key} className="pb-3 font-medium">
+                    {column.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                  <td
+                    colSpan={columns.visibleColumns.length}
+                    className="py-10 text-center text-muted-foreground"
+                  >
                     Loading staff…
                   </td>
                 </tr>
               ) : data?.rows.length ? (
                 data.rows.map((row) => (
                   <tr key={row.id} className="border-b border-border/60 last:border-0">
-                    <td className="py-3">
-                      <p className="font-medium">
-                        {fullName(row.firstname, row.lastname)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{row.email}</p>
-                      {row.phone ? (
-                        <p className="text-xs text-muted-foreground">{row.phone}</p>
-                      ) : null}
-                    </td>
-                    <td>
-                      <Badge tone={row.role === "mentor" ? "blue" : "purple"}>
-                        {row.role || "teacher"}
-                      </Badge>
-                    </td>
-                    <td>
-                      <Badge
-                        tone={
-                          row.isBlocked
-                            ? "red"
-                            : row.status === "Verified"
-                              ? "green"
-                              : "amber"
-                        }
-                      >
-                        {row.isBlocked ? "Blocked" : row.status}
-                      </Badge>
-                    </td>
-                    <td className="max-w-[180px] truncate">{row.subjects || "—"}</td>
-                    <td>{row.studentCount}</td>
-                    <td>{row.instituteCount}</td>
-                    <td className="text-muted-foreground">{formatDate(row.createdAt)}</td>
+                    {columns.visibleColumns.map((column) => (
+                      <td key={column.key} className="py-3 align-top">
+                        <TeacherCell columnKey={column.key} row={row} />
+                      </td>
+                    ))}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={columns.visibleColumns.length}>
                     <EmptyState message="No teachers or mentors in this range." />
                   </td>
                 </tr>

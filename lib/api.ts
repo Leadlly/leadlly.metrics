@@ -28,6 +28,24 @@ export function searchFilter(q: string | null, fields: string[]) {
   return { $or: fields.map((field) => ({ [field]: regex })) };
 }
 
+const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "authenticated"];
+
+export function applyStudentPlanFilter(
+  match: Record<string, unknown>,
+  category?: string | null,
+) {
+  if (!category || category === "all") return match;
+  if (category === "subscription") {
+    match["subscription.status"] = { $in: ACTIVE_SUBSCRIPTION_STATUSES };
+    return match;
+  }
+  if (category === "free") {
+    match["subscription.status"] = { $nin: ACTIVE_SUBSCRIPTION_STATUSES };
+    return match;
+  }
+  return match;
+}
+
 export function rangeFromRequest(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   return {

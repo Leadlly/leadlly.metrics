@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { rangeFromRequest } from "@/lib/api";
+import { applyStudentPlanFilter, rangeFromRequest } from "@/lib/api";
 import { daysAgo } from "@/lib/dates";
 import { mapStudent } from "@/lib/mappers";
 import { getDb } from "@/lib/mongodb";
@@ -36,9 +36,7 @@ const LIST_PROJECTION = {
 
 function studentMatch(params: ReturnType<typeof rangeFromRequest>) {
   const match: Record<string, unknown> = { ...params.createdAt };
-  if (params.category && params.category !== "all") {
-    match.category = params.category;
-  }
+  applyStudentPlanFilter(match, params.category);
   const q = params.q?.trim();
   if (q) {
     const regex = { $regex: escapeRegex(q), $options: "i" };

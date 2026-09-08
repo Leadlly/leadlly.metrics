@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Download, Search } from "lucide-react";
-import { formatDate, formatDateTime } from "@/lib/dates";
+import { displayDateTime, displayDateValue, displayValue } from "@/lib/display";
 import { STUDENT_EXPORT_FIELDS } from "@/lib/fields";
+import { STUDENT_TABLE_COLUMNS } from "@/lib/columns";
 import { fullName } from "@/lib/utils";
+import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { DateRangeFilter, PageHeader, Pagination } from "@/components/ui/filters";
 import { downloadExport, ExportDialog } from "@/components/ui/export-dialog";
+import { ColumnPicker } from "@/components/ui/column-picker";
 import { Badge, Button, Input, Select } from "@/components/ui/primitives";
 import { EmptyState, MetaRow, Panel, StatCard } from "@/components/ui/stat-card";
 
@@ -16,15 +19,24 @@ type Student = {
   lastname: string;
   email: string;
   phone: string;
+  parentName?: string;
+  parentPhone?: string;
   category: string;
   standard: string;
   exam: string;
+  school?: string;
+  coaching?: string;
   institute: string;
   subscription: string;
+  planId?: string;
+  freeTrial?: string;
   level: number;
+  points?: number;
   streak: number;
+  gender?: string;
   createdAt?: string;
   lastActivity?: string;
+  disabled?: boolean;
 };
 
 type Payload = {
@@ -47,6 +59,52 @@ function subTone(value: string) {
   return "neutral" as const;
 }
 
+function StudentIdentity({ row }: { row: Student }) {
+  return (
+    <div className="min-w-0">
+      <p className="font-medium">{fullName(row.firstname, row.lastname)}</p>
+      <p className="truncate text-xs text-muted-foreground">{row.email}</p>
+      {row.phone ? (
+        <p className="text-xs text-muted-foreground">{row.phone}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function StudentCell({ columnKey, row }: { columnKey: string; row: Student }) {
+  switch (columnKey) {
+    case "student":
+      return <StudentIdentity row={row} />;
+    case "category":
+      return <Badge tone={categoryTone(row.category)}>{row.category || "free"}</Badge>;
+    case "examClass":
+      return (
+        <div>
+          <p>{row.exam || "—"}</p>
+          <p className="text-xs text-muted-foreground">
+            {row.standard ? `Class ${row.standard}` : "—"}
+          </p>
+        </div>
+      );
+    case "subscription":
+      return <Badge tone={subTone(row.subscription)}>{row.subscription}</Badge>;
+    case "lastActivity":
+      return (
+        <span className="text-muted-foreground">
+          {displayDateTime(row.lastActivity)}
+        </span>
+      );
+    case "createdAt":
+      return (
+        <span className="text-muted-foreground">{displayDateValue(row.createdAt)}</span>
+      );
+    case "disabled":
+      return displayValue(row.disabled);
+    default:
+      return displayValue((row as Record<string, unknown>)[columnKey]);
+  }
+}
+
 export function StudentsView() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -59,6 +117,7 @@ export function StudentsView() {
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const columns = useColumnPrefs("students", STUDENT_TABLE_COLUMNS);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,11 +215,9 @@ export function StudentsView() {
                 setApplied({ from, to, q, category: e.target.value });
               }}
             >
-              <option value="all">All plans</option>
+              <option value="all">All</option>
               <option value="free">Free</option>
-              <option value="consistency">Consistency</option>
-              <option value="pro">Pro</option>
-              <option value="plus">Plus</option>
+              <option value="subscription">Subscription</option>
             </Select>
           </div>
         </div>
@@ -180,7 +237,19 @@ export function StudentsView() {
       </div>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <Panel title="User list">
+        <Panel
+          title="User list"
+          action={
+            <ColumnPicker
+              catalog={STUDENT_TABLE_COLUMNS}
+              order={columns.prefs.order}
+              visible={columns.prefs.visible}
+              onToggle={columns.toggle}
+              onReorder={columns.reorder}
+              onReset={columns.reset}
+            />
+          }
+        >
           <div className="space-y-3 md:hidden">
             {loading ? (
               <EmptyState message="Loading students…" />
@@ -190,30 +259,16 @@ export function StudentsView() {
                   key={row.id}
                   className="space-y-2 rounded-2xl border border-border/80 bg-white p-3"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium">
-                        {fullName(row.firstname, row.lastname)}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {row.email}
-                      </p>
-                    </div>
-                    <Badge tone={categoryTone(row.category)}>
-                      {row.category || "free"}
-                    </Badge>
-                  </div>
-                  <MetaRow label="Exam / class">
-                    {row.exam || "—"}
-                    {row.standard ? ` · Class ${row.standard}` : ""}
-                  </MetaRow>
-                  <MetaRow label="Institute">{row.institute || "—"}</MetaRow>
-                  <MetaRow label="Subscription">
-                    <Badge tone={subTone(row.subscription)}>{row.subscription}</Badge>
-                  </MetaRow>
-                  <MetaRow label="Last activity">
-                    {formatDateTime(row.lastActivity)}
-                  </MetaRow>
+                  {columns.visibleColumns.some((column) => column.key === "student") ? (
+                    <StudentIdentity row={row} />
+                  ) : null}
+                  {columns.visibleColumns
+                    .filter((column) => column.key !== "student")
+                    .map((column) => (
+                      <MetaRow key={column.key} label={column.label}>
+                        <StudentCell columnKey={column.key} row={row} />
+                      </MetaRow>
+                    ))}
                 </article>
               ))
             ) : (
@@ -222,65 +277,42 @@ export function StudentsView() {
           </div>
 
           <div className="-mx-4 hidden overflow-x-auto md:mx-0 md:block">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table
+              className="w-full text-left text-sm"
+              style={{ minWidth: Math.max(520, columns.visibleColumns.length * 130) }}
+            >
               <thead>
                 <tr className="border-b border-border text-xs text-muted-foreground">
-                  <th className="pb-3 font-medium">Student</th>
-                  <th className="pb-3 font-medium">Plan</th>
-                  <th className="pb-3 font-medium">Exam / class</th>
-                  <th className="pb-3 font-medium">Institute</th>
-                  <th className="pb-3 font-medium">Subscription</th>
-                  <th className="pb-3 font-medium">Last activity</th>
-                  <th className="pb-3 font-medium">Created</th>
+                  {columns.visibleColumns.map((column) => (
+                    <th key={column.key} className="pb-3 font-medium">
+                      {column.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                    <td
+                      colSpan={columns.visibleColumns.length}
+                      className="py-10 text-center text-muted-foreground"
+                    >
                       Loading students…
                     </td>
                   </tr>
                 ) : data?.rows.length ? (
                   data.rows.map((row) => (
                     <tr key={row.id} className="border-b border-border/60 last:border-0">
-                      <td className="py-3">
-                        <p className="font-medium">
-                          {fullName(row.firstname, row.lastname)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{row.email}</p>
-                        {row.phone ? (
-                          <p className="text-xs text-muted-foreground">{row.phone}</p>
-                        ) : null}
-                      </td>
-                      <td>
-                        <Badge tone={categoryTone(row.category)}>
-                          {row.category || "free"}
-                        </Badge>
-                      </td>
-                      <td>
-                        <p>{row.exam || "—"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {row.standard ? `Class ${row.standard}` : "—"}
-                        </p>
-                      </td>
-                      <td>{row.institute || "—"}</td>
-                      <td>
-                        <Badge tone={subTone(row.subscription)}>
-                          {row.subscription}
-                        </Badge>
-                      </td>
-                      <td className="text-muted-foreground">
-                        {formatDateTime(row.lastActivity)}
-                      </td>
-                      <td className="text-muted-foreground">
-                        {formatDate(row.createdAt)}
-                      </td>
+                      {columns.visibleColumns.map((column) => (
+                        <td key={column.key} className="py-3 align-top">
+                          <StudentCell columnKey={column.key} row={row} />
+                        </td>
+                      ))}
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={columns.visibleColumns.length}>
                       <EmptyState message="No students in this range." />
                     </td>
                   </tr>
@@ -308,7 +340,7 @@ export function StudentsView() {
                   </p>
                   <p className="truncate text-xs text-muted-foreground">{row.email}</p>
                   <p className="mt-1 text-xs text-primary">
-                    {formatDateTime(row.lastActivity)}
+                    {displayDateTime(row.lastActivity)}
                   </p>
                 </div>
               ))

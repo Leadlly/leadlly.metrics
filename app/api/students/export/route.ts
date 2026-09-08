@@ -9,7 +9,7 @@ import {
 import { STUDENT_EXPORT_FIELDS } from "@/lib/fields";
 import { mapStudent } from "@/lib/mappers";
 import { getDb } from "@/lib/mongodb";
-import { EXPORT_LIMIT } from "@/lib/api";
+import { applyStudentPlanFilter, EXPORT_LIMIT } from "@/lib/api";
 import { escapeRegex } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const match: Record<string, unknown> = {
       ...createdAtFilter({ from: body.from, to: body.to }),
     };
-    if (body.category && body.category !== "all") match.category = body.category;
+    applyStudentPlanFilter(match, body.category);
     const q = body.q?.trim();
     if (q) {
       const regex = { $regex: escapeRegex(q), $options: "i" };
