@@ -10,8 +10,9 @@ import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { DateRangeFilter, PageHeader, Pagination } from "@/components/ui/filters";
 import { downloadExport, ExportDialog } from "@/components/ui/export-dialog";
 import { ColumnPicker } from "@/components/ui/column-picker";
+import { TableFrame } from "@/components/ui/data-table";
 import { Badge, Button, Input, Select } from "@/components/ui/primitives";
-import { EmptyState, MetaRow, Panel, StatCard } from "@/components/ui/stat-card";
+import { EmptyState, Panel, StatCard } from "@/components/ui/stat-card";
 
 type Teacher = {
   id: string;
@@ -234,89 +235,43 @@ export function TeachersView() {
           />
         }
       >
-        <div className="space-y-3 md:hidden">
-          {loading ? (
-            <EmptyState message="Loading staff…" />
-          ) : data?.rows.length ? (
-            data.rows.map((row) => (
-              <article
-                key={row.id}
-                className="space-y-2 rounded-2xl border border-border/80 bg-white p-3"
-              >
-                {columns.visibleColumns.some((column) => column.key === "name") ? (
-                  <div className="flex items-start justify-between gap-2">
-                    <TeacherIdentity row={row} />
-                    {columns.visibleColumns.some((column) => column.key === "role") ? (
-                      <TeacherCell columnKey="role" row={row} />
-                    ) : null}
-                  </div>
-                ) : (
-                  columns.visibleColumns
-                    .filter((column) => column.key === "role")
-                    .map((column) => (
-                      <MetaRow key={column.key} label={column.label}>
-                        <TeacherCell columnKey={column.key} row={row} />
-                      </MetaRow>
-                    ))
-                )}
-                {columns.visibleColumns
-                  .filter((column) => column.key !== "name" && column.key !== "role")
-                  .map((column) => (
-                    <MetaRow key={column.key} label={column.label}>
-                      <TeacherCell columnKey={column.key} row={row} />
-                    </MetaRow>
-                  ))}
-              </article>
-            ))
-          ) : (
-            <EmptyState message="No teachers or mentors in this range." />
-          )}
-        </div>
-
-        <div className="-mx-4 hidden overflow-x-auto md:mx-0 md:block">
-          <table
-            className="w-full text-left text-sm"
-            style={{ minWidth: Math.max(520, columns.visibleColumns.length * 130) }}
-          >
-            <thead>
-              <tr className="border-b border-border text-xs text-muted-foreground">
-                {columns.visibleColumns.map((column) => (
-                  <th key={column.key} className="pb-3 font-medium">
-                    {column.label}
-                  </th>
-                ))}
+        <TableFrame columnCount={columns.visibleColumns.length}>
+          <thead>
+            <tr className="border-b border-border text-xs text-muted-foreground">
+              {columns.visibleColumns.map((column) => (
+                <th key={column.key}>{column.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td
+                  colSpan={columns.visibleColumns.length}
+                  className="py-10 text-center text-muted-foreground"
+                >
+                  Loading staff…
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={columns.visibleColumns.length}
-                    className="py-10 text-center text-muted-foreground"
-                  >
-                    Loading staff…
-                  </td>
+            ) : data?.rows.length ? (
+              data.rows.map((row) => (
+                <tr key={row.id} className="border-b border-border/60 last:border-0">
+                  {columns.visibleColumns.map((column) => (
+                    <td key={column.key}>
+                      <TeacherCell columnKey={column.key} row={row} />
+                    </td>
+                  ))}
                 </tr>
-              ) : data?.rows.length ? (
-                data.rows.map((row) => (
-                  <tr key={row.id} className="border-b border-border/60 last:border-0">
-                    {columns.visibleColumns.map((column) => (
-                      <td key={column.key} className="py-3 align-top">
-                        <TeacherCell columnKey={column.key} row={row} />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={columns.visibleColumns.length}>
-                    <EmptyState message="No teachers or mentors in this range." />
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={columns.visibleColumns.length}>
+                  <EmptyState message="No teachers or mentors in this range." />
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </TableFrame>
         {data ? (
           <Pagination
             page={data.page}
