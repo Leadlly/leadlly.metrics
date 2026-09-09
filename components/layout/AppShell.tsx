@@ -29,8 +29,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="grid-wash min-h-dvh overflow-x-clip lg:grid lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
-      <header className="sticky top-0 z-40 border-b border-white/60 bg-sidebar/95 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+    <div className="grid-wash flex h-dvh flex-col overflow-hidden lg:grid lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
+      <header className="z-40 shrink-0 border-b border-white/60 bg-sidebar/95 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
         <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
             <Logo className="size-7 shrink-0" />
@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
 
-      <aside className="hidden flex-col border-r border-white/60 bg-sidebar/90 backdrop-blur lg:flex">
+      <aside className="hidden h-full min-h-0 flex-col overflow-hidden border-r border-white/60 bg-sidebar/90 backdrop-blur lg:flex">
         <div className="flex items-center gap-3 px-6 py-5">
             <Logo className="size-10" />
           <div>
@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="min-w-0 overflow-x-clip">
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-clip overflow-y-auto">
         <main className="mx-auto w-full max-w-7xl px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8">
           {children}
         </main>

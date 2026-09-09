@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { GripVertical, Lock, RotateCcw, Settings2 } from "lucide-react";
 import type { TableColumn } from "@/lib/columns";
 import { cn } from "@/lib/utils";
@@ -23,15 +22,10 @@ export function ColumnPicker({
   onReset: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ top: 0, right: 16 });
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -39,10 +33,7 @@ export function ColumnPicker({
     function place() {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setPos({
-        top: Math.min(rect.bottom + 8, window.innerHeight - 24),
-        right: Math.max(12, window.innerWidth - rect.right),
-      });
+      setOpenUp(window.innerHeight - rect.bottom < 360);
     }
 
     function onPointer(event: MouseEvent) {
@@ -53,12 +44,18 @@ export function ColumnPicker({
       setOpen(false);
     }
 
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
     place();
     window.addEventListener("resize", place);
     document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("resize", place);
       document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
@@ -78,7 +75,7 @@ export function ColumnPicker({
   }
 
   return (
-    <>
+    <div className="relative">
       <Button
         ref={buttonRef}
         type="button"
@@ -90,13 +87,14 @@ export function ColumnPicker({
       >
         <Settings2 className="size-4" />
       </Button>
-      {mounted && open
-        ? createPortal(
-            <div
-              ref={panelRef}
-              className="fixed z-50 flex max-h-[min(28rem,80dvh)] w-[min(20rem,calc(100vw-1.5rem))] flex-col rounded-2xl border border-border bg-white shadow-lg"
-              style={{ top: pos.top, right: pos.right }}
-            >
+      {open ? (
+        <div
+          ref={panelRef}
+          className={cn(
+            "absolute z-50 flex max-h-[min(28rem,80dvh)] w-[min(20rem,calc(100vw-1.5rem))] flex-col rounded-2xl border border-border bg-white shadow-lg",
+            openUp ? "bottom-full right-0 mb-2" : "top-full right-0 mt-2",
+          )}
+        >
               <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5">
                 <p className="text-sm font-semibold">Table columns</p>
                 <button
@@ -148,10 +146,8 @@ export function ColumnPicker({
                   );
                 })}
               </div>
-            </div>,
-            document.body,
-          )
-        : null}
-    </>
+            </div>
+      ) : null}
+    </div>
   );
 }

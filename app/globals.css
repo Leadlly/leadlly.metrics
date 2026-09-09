@@ -103,6 +103,11 @@ input[type="date"] {
   --rdp-day-width: 36px;
   --rdp-day_button-height: 34px;
   --rdp-day_button-width: 34px;
+  --rdp-months-gap: 1.25rem;
+}
+
+.metrics-daypicker .rdp-months {
+  flex-wrap: nowrap;
 }
 
 ::-webkit-scrollbar {

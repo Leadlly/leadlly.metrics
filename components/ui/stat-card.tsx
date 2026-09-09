@@ -50,12 +50,12 @@ export function Panel({
   return (
     <section
       className={cn(
-        "min-w-0 overflow-hidden rounded-2xl border border-white/70 bg-white/80 shadow-sm backdrop-blur sm:rounded-3xl",
+        "min-w-0 overflow-visible rounded-2xl border border-white/70 bg-white/80 shadow-sm backdrop-blur sm:rounded-3xl",
         className,
       )}
     >
       {(title || action) && (
-        <header className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3 sm:px-5 sm:py-4">
+        <header className="relative z-20 flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3 sm:px-5 sm:py-4">
           {title ? (
             <h2 className="min-w-0 truncate font-semibold">{title}</h2>
           ) : (

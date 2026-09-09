@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { CalendarRange, ChevronDown } from "lucide-react";
 import {
   DayPicker,
@@ -15,6 +14,7 @@ import {
   subMonths,
 } from "date-fns";
 import { toISODate } from "@/lib/dates";
+import { istTodayDate } from "@/lib/ist";
 import { cn } from "@/lib/utils";
 import { Button } from "./primitives";
 
@@ -25,8 +25,7 @@ function parseISODate(value: string) {
 }
 
 function today() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return istTodayDate();
 }
 
 const PRESETS = [
@@ -112,15 +111,13 @@ export function DateRangeFilter({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [months, setMonths] = useState(1);
+  const [openUp, setOpenUp] = useState(false);
   const [draft, setDraft] = useState<CalendarRangeValue | undefined>();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ top: 0, left: 12 });
 
   useEffect(() => {
-    setMounted(true);
     const mq = window.matchMedia("(min-width: 768px)");
     const update = () => setMonths(mq.matches ? 2 : 1);
     update();
@@ -141,15 +138,7 @@ export function DateRangeFilter({
     function place() {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const width = Math.min(window.innerWidth - 24, months === 2 ? 720 : 360);
-      let left = rect.left;
-      if (left + width > window.innerWidth - 12) {
-        left = window.innerWidth - width - 12;
-      }
-      setPos({
-        top: Math.min(rect.bottom + 8, window.innerHeight - 24),
-        left: Math.max(12, left),
-      });
+      setOpenUp(window.innerHeight - rect.bottom < 420);
     }
 
     function onPointer(event: MouseEvent) {
@@ -190,15 +179,12 @@ export function DateRangeFilter({
   }
 
   return (
-    <>
+    <div className={cn("relative", className)}>
       <Button
         ref={buttonRef}
         type="button"
         variant="outline"
-        className={cn(
-          "w-full justify-between sm:w-auto sm:min-w-[200px]",
-          className,
-        )}
+        className="w-full justify-between sm:min-w-[200px]"
         aria-label="Choose date range"
         onClick={() => setOpen((value) => !value)}
       >
@@ -208,74 +194,74 @@ export function DateRangeFilter({
         </span>
         <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
       </Button>
-      {mounted && open
-        ? createPortal(
-            <div
-              ref={panelRef}
-              className="fixed z-50 w-[min(46rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-border bg-white shadow-lg"
-              style={{ top: pos.top, left: pos.left }}
-            >
-              <div className="flex flex-col md:flex-row">
-                <div className="flex gap-1 overflow-x-auto border-b border-border p-2 md:w-40 md:flex-col md:overflow-visible md:border-r md:border-b-0">
-                  {PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      className={cn(
-                        "shrink-0 rounded-xl px-3 py-2 text-left text-sm whitespace-nowrap hover:bg-muted",
-                        activePreset === preset.id && "bg-primary/10 font-medium text-primary",
-                      )}
-                      onClick={() => {
-                        const range = preset.range();
-                        apply(range.from, range.to);
-                      }}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="min-w-0 overflow-x-auto p-3">
-                  <DayPicker
-                    mode="range"
-                    numberOfMonths={months}
-                    resetOnSelect
-                    selected={draft}
-                    onSelect={setDraft}
-                    disabled={{ after: today() }}
-                    startMonth={new Date(2020, 0)}
-                    endMonth={today()}
-                  />
-                  <div className="mt-2 flex justify-end gap-2 border-t border-border pt-3">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={!draft?.from}
-                      onClick={() => {
-                        if (!draft?.from) return;
-                        apply(
-                          toISODate(draft.from),
-                          toISODate(draft.to ?? draft.from),
-                        );
-                      }}
-                    >
-                      Apply
-                    </Button>
-                  </div>
-                </div>
+      {open ? (
+        <div
+          ref={panelRef}
+          className={cn(
+            "absolute z-50 w-max max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-border bg-white shadow-lg",
+            openUp ? "bottom-full right-0 mb-2" : "top-full right-0 mt-2",
+          )}
+        >
+          <div className="flex flex-col md:flex-row">
+            <div className="flex gap-1 overflow-x-auto border-b border-border p-2 md:w-40 md:shrink-0 md:flex-col md:overflow-visible md:border-r md:border-b-0">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className={cn(
+                    "shrink-0 rounded-xl px-3 py-2 text-left text-sm whitespace-nowrap hover:bg-muted",
+                    activePreset === preset.id && "bg-primary/10 font-medium text-primary",
+                  )}
+                  onClick={() => {
+                    const range = preset.range();
+                    apply(range.from, range.to);
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <div className="p-3">
+              <DayPicker
+                className="metrics-daypicker"
+                mode="range"
+                numberOfMonths={months}
+                resetOnSelect
+                selected={draft}
+                onSelect={setDraft}
+                disabled={{ after: today() }}
+                startMonth={new Date(2020, 0)}
+                endMonth={today()}
+              />
+              <div className="mt-2 flex justify-end gap-2 border-t border-border pt-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!draft?.from}
+                  onClick={() => {
+                    if (!draft?.from) return;
+                    apply(
+                      toISODate(draft.from),
+                      toISODate(draft.to ?? draft.from),
+                    );
+                  }}
+                >
+                  Apply
+                </Button>
               </div>
-            </div>,
-            document.body,
-          )
-        : null}
-    </>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -331,7 +317,7 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className="relative z-30 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0">
         <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">
           {eyebrow}

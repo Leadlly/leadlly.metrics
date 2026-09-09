@@ -23,6 +23,13 @@ export function fullName(
   return name || "—";
 }
 
+export function formatClassLabel(standard?: string | number | null) {
+  if (standard == null || standard === "") return "—";
+  const value = String(standard).trim();
+  if (value === "13") return "Dropper";
+  return `Class ${value}`;
+}
+
 export function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

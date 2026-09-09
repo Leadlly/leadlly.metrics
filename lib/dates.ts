@@ -21,16 +21,32 @@ export function daysAgo(days: number) {
 
 export function formatDate(value?: Date | string | null) {
   if (!value) return "—";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return format(new Date(`${value}T00:00:00+05:30`), "dd MMM yyyy");
+  }
   const date = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return "—";
-  return format(date, "dd MMM yyyy");
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }
 
 export function formatDateTime(value?: Date | string | null) {
   if (!value) return "—";
   const date = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return "—";
-  return format(date, "dd MMM yyyy, hh:mm a");
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
 }
 
 export function toISODate(value: Date) {

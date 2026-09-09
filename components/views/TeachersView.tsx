@@ -158,7 +158,7 @@ export function TeachersView() {
           </Button>
         }
       />
-      <div className="flex items-center gap-2">
+      <div className="relative z-30 flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input

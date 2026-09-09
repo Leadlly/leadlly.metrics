@@ -36,13 +36,22 @@ export function mapStudent(doc: Record<string, unknown>) {
         level?: { number?: number };
         points?: { number?: number };
         streak?: { number?: number; updatedAt?: Date };
+        report?: {
+          dailyReport?: {
+            date?: Date | string;
+            session?: number;
+            quiz?: number;
+            overall?: number;
+          };
+        };
       }
     | undefined;
-  const about = doc.about as { gender?: string } | undefined;
+  const about = doc.about as { gender?: string; dateOfBirth?: string } | undefined;
   const lastActivity =
     (doc.updatedAt as Date | undefined) ||
     details?.streak?.updatedAt ||
     (doc.createdAt as Date | undefined);
+  const daily = details?.report?.dailyReport;
 
   return {
     id: asId(doc._id),
@@ -72,7 +81,107 @@ export function mapStudent(doc: Record<string, unknown>) {
     createdAt: doc.createdAt as Date | undefined,
     lastActivity,
     disabled: Boolean(doc.disabled),
+    dailyReportDate: daily?.date,
+    dailyReportSession: Number(daily?.session || 0),
+    dailyReportQuiz: Number(daily?.quiz || 0),
+    dailyReportOverall: Number(daily?.overall || 0),
   };
+}
+
+export type StudentRow = ReturnType<typeof mapStudent>;
+
+type SubjectDoc = {
+  name?: string;
+  overall_efficiency?: number;
+  overall_progress?: number;
+  total_questions_solved?: { number?: number; percentage?: number };
+};
+
+export function mapStudentDetail(doc: Record<string, unknown>) {
+  const base = mapStudent(doc);
+  const academic = doc.academic as Record<string, unknown> | undefined;
+  const about = doc.about as { gender?: string; dateOfBirth?: string } | undefined;
+  const address = doc.address as
+    | { country?: string; addressLine?: string; pincode?: number | string }
+    | undefined;
+  const phone = doc.phone as
+    | { personal?: number | string; other?: number | string }
+    | undefined;
+  const avatar = doc.avatar as { url?: string } | undefined;
+  const subscription = doc.subscription as
+    | {
+        status?: string;
+        planId?: string;
+        dateOfActivation?: Date;
+        dateOfDeactivation?: Date;
+      }
+    | undefined;
+  const freeTrial = doc.freeTrial as
+    | {
+        active?: boolean;
+        availed?: boolean;
+        dateOfActivation?: Date;
+        dateOfDeactivation?: Date;
+      }
+    | undefined;
+  const subjects = Array.isArray(academic?.subjects)
+    ? (academic.subjects as SubjectDoc[])
+    : [];
+
+  return {
+    ...base,
+    avatar: String(avatar?.url || ""),
+    dob: String(about?.dateOfBirth || ""),
+    phoneOther: phone?.other == null ? "" : String(phone.other),
+    addressLine: String(address?.addressLine || ""),
+    pincode: address?.pincode == null ? "" : String(address.pincode),
+    country: String(address?.country || ""),
+    schedule: String(academic?.schedule || ""),
+    coachingAddress: String(academic?.coachingAddress || ""),
+    schoolAddress: String(academic?.schoolOrCollegeAddress || ""),
+    subscriptionActivated: subscription?.dateOfActivation,
+    subscriptionDeactivated: subscription?.dateOfDeactivation,
+    freeTrialActivated: freeTrial?.dateOfActivation,
+    freeTrialDeactivated: freeTrial?.dateOfDeactivation,
+    subjects: subjects.map((subject) => ({
+      name: String(subject.name || "Subject"),
+      efficiency: Number(subject.overall_efficiency || 0),
+      progress: Number(subject.overall_progress || 0),
+      questionsSolved: Number(subject.total_questions_solved?.number || 0),
+    })),
+  };
+}
+
+export type StudentDetail = ReturnType<typeof mapStudentDetail>;
+
+export function mapTracker(doc: Record<string, unknown>) {
+  const subject = doc.subject as { name?: string } | string | undefined;
+  const chapter = doc.chapter as
+    | {
+        name?: string;
+        overall_efficiency?: number;
+        overall_progress?: number;
+        total_questions_solved?: { number?: number };
+      }
+    | undefined;
+  const topics = Array.isArray(doc.topics) ? doc.topics : [];
+  return {
+    id: asId(doc._id),
+    subject:
+      typeof subject === "string" ? subject : String(subject?.name || ""),
+    chapter: String(chapter?.name || ""),
+    efficiency: Number(chapter?.overall_efficiency || 0),
+    progress: Number(chapter?.overall_progress || 0),
+    questionsSolved: Number(chapter?.total_questions_solved?.number || 0),
+    topics: topics.length,
+  };
+}
+
+export type TrackerRow = ReturnType<typeof mapTracker>;
+
+export function parseObjectId(id: string) {
+  if (!id || !/^[a-f0-9]{24}$/i.test(id)) return null;
+  return new ObjectId(id);
 }
 
 export function mapTeacher(doc: Record<string, unknown>) {
