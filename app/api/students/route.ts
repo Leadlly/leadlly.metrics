@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { applyStudentPlanFilter, rangeFromRequest } from "@/lib/api";
 import { daysAgo } from "@/lib/dates";
-import { mapStudent } from "@/lib/mappers";
+import { mapStudent, parseObjectId } from "@/lib/mappers";
 import { getDb } from "@/lib/mongodb";
 import { escapeRegex } from "@/lib/utils";
 
@@ -38,7 +38,22 @@ const LIST_PROJECTION = {
   disabled: 1,
 };
 
-function studentMatch(params: ReturnType<typeof rangeFromRequest>) {
+function parseIdList(value: string | null) {
+  if (!value) return [];
+  const ids = [];
+  for (const part of value.split(",")) {
+    const id = parseObjectId(part.trim());
+    if (id) ids.push(id);
+    if (ids.length >= 1000) break;
+  }
+  return ids;
+}
+
+function studentMatch(
+  params: ReturnType<typeof rangeFromRequest>,
+  ids: ReturnType<typeof parseIdList>,
+  excludeIds: ReturnType<typeof parseIdList>,
+) {
   const match: Record<string, unknown> = { ...params.createdAt };
   applyStudentPlanFilter(match, params.category);
   const q = params.q?.trim();
@@ -46,15 +61,19 @@ function studentMatch(params: ReturnType<typeof rangeFromRequest>) {
     const regex = { $regex: escapeRegex(q), $options: "i" };
     match.$or = [{ firstname: regex }, { lastname: regex }, { email: regex }];
   }
+  if (ids.length) match._id = { $in: ids };
+  else if (excludeIds.length) match._id = { $nin: excludeIds };
   return match;
 }
 
 export async function GET(request: NextRequest) {
   try {
     const params = rangeFromRequest(request);
+    const ids = parseIdList(request.nextUrl.searchParams.get("ids"));
+    const excludeIds = parseIdList(request.nextUrl.searchParams.get("excludeIds"));
     const db = await getDb();
     const users = db.collection("users");
-    const match = studentMatch(params);
+    const match = studentMatch(params, ids, excludeIds);
     const d1 = daysAgo(1);
     const d7 = daysAgo(7);
     const d30 = daysAgo(30);

@@ -10,9 +10,13 @@ import {
 } from "@/components/charts/StudentCharts";
 import { Badge, Button } from "@/components/ui/primitives";
 import { EmptyState, Panel, StatCard } from "@/components/ui/stat-card";
+import { StudentPlannerPanels } from "@/components/views/StudentPlannerPanels";
+import { LeadTagBadge } from "@/components/ui/lead-tag-menu";
 import { displayDateTime, displayDateValue, displayValue } from "@/lib/display";
 import { efficiencyRowClass, isTodayInKolkata } from "@/lib/efficiency";
+import { useStudentLeadTags } from "@/hooks/use-student-lead-tags";
 import type { StudentDetail, TrackerRow } from "@/lib/mappers";
+import type { StudentPlanner } from "@/lib/planner";
 import type { ReportDay } from "@/lib/student-reports";
 import { cn, formatClassLabel, fullName } from "@/lib/utils";
 
@@ -32,6 +36,7 @@ type Payload = {
   reports: Reports;
   tracker: TrackerRow[];
   quizAttempts: number;
+  planner: StudentPlanner | null;
 };
 
 function initials(student: StudentDetail) {
@@ -82,6 +87,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
   const [loading, setLoading] = useState(true);
   const [subjectTab, setSubjectTab] = useState("");
   const [rangeTab, setRangeTab] = useState<"weekly" | "monthly" | "overall">("weekly");
+  const leadTags = useStudentLeadTags();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -230,6 +236,10 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
                   {student.subscription}
                 </Badge>
                 {student.institute ? <Badge tone="blue">{student.institute}</Badge> : null}
+                <LeadTagBadge
+                  tagId={leadTags.tags[student.id]}
+                  onRemove={() => leadTags.setTag([student.id], null)}
+                />
               </div>
             </div>
           </div>
@@ -269,6 +279,8 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
         <StatCard label="Revision accuracy" value={`${todayQuiz}%`} hint="Today's quiz score" />
         <StatCard label="Quizzes attempted" value={data?.quizAttempts ?? 0} />
       </div>
+
+      <StudentPlannerPanels key={student.id} planner={data?.planner ?? null} />
 
       <Panel
         title="Today's daily report"

@@ -4,6 +4,7 @@ import {
   parseObjectId,
 } from "@/lib/mappers";
 import { getDb } from "@/lib/mongodb";
+import { buildStudentPlanner } from "@/lib/planner";
 import { buildStudentReports } from "@/lib/student-reports";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export async function GET(
     }
 
     const db = await getDb();
-    const [doc, reports, trackers, quizAttempts] = await Promise.all([
+    const [doc, reports, trackers, quizAttempts, planner] = await Promise.all([
       db.collection("users").findOne(
         { _id: id },
         { projection: { password: 0, salt: 0, resetPasswordToken: 0 } },
@@ -31,6 +32,7 @@ export async function GET(
       db.collection("studentquizattempts").countDocuments({
         $or: [{ userId: id }, { user: id }, { userId: studentId }, { user: studentId }],
       }),
+      buildStudentPlanner(db, id, studentId),
     ]);
 
     if (!doc) {
@@ -42,6 +44,7 @@ export async function GET(
       reports,
       tracker: trackers.map((item) => mapTracker(item as Record<string, unknown>)),
       quizAttempts,
+      planner,
     });
   } catch (error) {
     console.error(error);
