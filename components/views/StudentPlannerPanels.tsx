@@ -101,10 +101,9 @@ function dayTopicNames(day: PlannerDay) {
 
 export function StudentPlannerPanels({ planner }: { planner: StudentPlanner | null }) {
   const days = planner?.days || [];
-  const defaultDay = days.find((day) => day.isToday)?.date || days[0]?.date || "";
-  const [selectedDate, setSelectedDate] = useState(defaultDay);
+  const [selectedDate, setSelectedDate] = useState("");
   const selected = useMemo(
-    () => days.find((day) => day.date === selectedDate) || days[0] || null,
+    () => days.find((day) => day.date === selectedDate) || null,
     [days, selectedDate],
   );
   const today = planner?.today;
@@ -175,7 +174,11 @@ export function StudentPlannerPanels({ planner }: { planner: StudentPlanner | nu
                   <li key={day.id || day.date}>
                     <button
                       type="button"
-                      onClick={() => setSelectedDate(day.date)}
+                      onClick={() =>
+                        setSelectedDate((current) =>
+                          current === day.date ? "" : day.date,
+                        )
+                      }
                       className={cn(
                         "w-full rounded-2xl border px-3 py-3 text-left transition sm:px-4",
                         day.isToday
