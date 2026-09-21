@@ -9,7 +9,7 @@ import {
 import { STUDENT_EXPORT_FIELDS } from "@/lib/fields";
 import { mapStudent } from "@/lib/mappers";
 import { getDb } from "@/lib/mongodb";
-import { applyStudentPlanFilter, EXPORT_LIMIT } from "@/lib/api";
+import { applyStudentPlanFilter, applyOnboardFilter, EXPORT_LIMIT } from "@/lib/api";
 import { escapeRegex } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       to?: string;
       q?: string;
       category?: string;
+      onboard?: string;
       fields?: string[];
       format?: "csv" | "xlsx";
     };
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       ...createdAtFilter({ from: body.from, to: body.to }),
     };
     applyStudentPlanFilter(match, body.category);
+    applyOnboardFilter(match, body.onboard);
     const q = body.q?.trim();
     if (q) {
       const regex = { $regex: escapeRegex(q), $options: "i" };
@@ -47,9 +49,14 @@ export async function POST(request: Request) {
       .toArray();
 
     const fields = pickExportFields(body.fields, STUDENT_EXPORT_FIELDS);
-    const mapped = docs.map((doc) =>
-      mapStudent(doc as Record<string, unknown>),
-    ) as Array<Record<string, unknown>>;
+    const mapped = docs.map((doc) => {
+      const row = mapStudent(doc as Record<string, unknown>) as Record<
+        string,
+        unknown
+      >;
+      row.onboard = row.onboard ? "generated" : "not generated";
+      return row;
+    });
     const rows = rowsForExport(mapped, fields);
     const stamp = new Date().toISOString().slice(0, 10);
 

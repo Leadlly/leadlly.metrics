@@ -2,6 +2,7 @@ import { MongoClient, type Db } from "mongodb";
 
 declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
+  var _questionsClientPromise: Promise<MongoClient> | undefined;
 }
 
 function getClientPromise() {
@@ -19,8 +20,28 @@ function getClientPromise() {
   return globalThis._mongoClientPromise;
 }
 
+function getQuestionsClientPromise() {
+  const uri = process.env.LEADLLY_QUESTIONS_DB_URL;
+  if (!uri) return null;
+  if (!globalThis._questionsClientPromise) {
+    const client = new MongoClient(uri, {
+      maxPoolSize: 6,
+      readPreference: "primary",
+    });
+    globalThis._questionsClientPromise = client.connect();
+  }
+  return globalThis._questionsClientPromise;
+}
+
 export async function getDb(): Promise<Db> {
   const client = await getClientPromise();
+  return client.db();
+}
+
+export async function getQuestionsDb(): Promise<Db | null> {
+  const promise = getQuestionsClientPromise();
+  if (!promise) return null;
+  const client = await promise;
   return client.db();
 }
 

@@ -81,6 +81,7 @@ export function mapStudent(doc: Record<string, unknown>) {
     createdAt: doc.createdAt as Date | undefined,
     lastActivity,
     disabled: Boolean(doc.disabled),
+    onboard: doc.onboard === true,
     dailyReportDate: daily?.date,
     dailyReportSession: Number(daily?.session || 0),
     dailyReportQuiz: Number(daily?.quiz || 0),

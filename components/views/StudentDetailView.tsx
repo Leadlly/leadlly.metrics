@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, ArrowUp, Flame, Star, Trophy } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Flame, Sparkles, Star, Trophy } from "lucide-react";
 import {
   DualAreaChart,
   DualBarChart,
@@ -11,6 +11,7 @@ import {
 import { Badge, Button } from "@/components/ui/primitives";
 import { EmptyState, Panel, StatCard } from "@/components/ui/stat-card";
 import { StudentPlannerPanels } from "@/components/views/StudentPlannerPanels";
+import { StudyDnaDialog } from "@/components/views/StudyDnaReport";
 import { LeadTagBadge } from "@/components/ui/lead-tag-menu";
 import { displayDateTime, displayDateValue, displayValue } from "@/lib/display";
 import { efficiencyRowClass, isTodayInKolkata } from "@/lib/efficiency";
@@ -18,6 +19,7 @@ import { useStudentLeadTags } from "@/hooks/use-student-lead-tags";
 import type { StudentDetail, TrackerRow } from "@/lib/mappers";
 import type { StudentPlanner } from "@/lib/planner";
 import type { ReportDay } from "@/lib/student-reports";
+import type { StudyDnaProfile } from "@/lib/study-dna";
 import { cn, formatClassLabel, fullName } from "@/lib/utils";
 
 type Reports = {
@@ -87,6 +89,10 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
   const [loading, setLoading] = useState(true);
   const [subjectTab, setSubjectTab] = useState("");
   const [rangeTab, setRangeTab] = useState<"weekly" | "monthly" | "overall">("weekly");
+  const [dnaOpen, setDnaOpen] = useState(false);
+  const [dnaLoading, setDnaLoading] = useState(false);
+  const [dnaError, setDnaError] = useState("");
+  const [dnaProfile, setDnaProfile] = useState<StudyDnaProfile | null>(null);
   const leadTags = useStudentLeadTags();
 
   const load = useCallback(async () => {
@@ -108,6 +114,36 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setDnaOpen(false);
+    setDnaProfile(null);
+    setDnaError("");
+    setDnaLoading(false);
+  }, [studentId]);
+
+  const openDnaReport = useCallback(async () => {
+    if (!data?.student.onboard) return;
+    setDnaOpen(true);
+    if (dnaProfile) return;
+    setDnaLoading(true);
+    setDnaError("");
+    try {
+      const res = await fetch(`/api/students/${studentId}/dna`);
+      const payload = (await res.json()) as {
+        profile?: StudyDnaProfile;
+        error?: string;
+      };
+      if (!res.ok || !payload.profile) {
+        throw new Error(payload.error || "failed");
+      }
+      setDnaProfile(payload.profile);
+    } catch {
+      setDnaError("Could not load DNA report.");
+    } finally {
+      setDnaLoading(false);
+    }
+  }, [data?.student.onboard, dnaProfile, studentId]);
 
   const student = data?.student;
   const activeSubjectName = subjectTab || student?.subjects[0]?.name || "";
@@ -243,22 +279,33 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
-              <Trophy className="mx-auto size-4 text-sky-600" />
-              <p className="mt-1 text-lg font-semibold">{student.level}</p>
-              <p className="text-[11px] text-muted-foreground">Level</p>
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
+                <Trophy className="mx-auto size-4 text-sky-600" />
+                <p className="mt-1 text-lg font-semibold">{student.level}</p>
+                <p className="text-[11px] text-muted-foreground">Level</p>
+              </div>
+              <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
+                <Star className="mx-auto size-4 text-amber-500" />
+                <p className="mt-1 text-lg font-semibold">{student.points}</p>
+                <p className="text-[11px] text-muted-foreground">Points</p>
+              </div>
+              <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
+                <Flame className="mx-auto size-4 text-fuchsia-500" />
+                <p className="mt-1 text-lg font-semibold">{student.streak}</p>
+                <p className="text-[11px] text-muted-foreground">Streak</p>
+              </div>
             </div>
-            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
-              <Star className="mx-auto size-4 text-amber-500" />
-              <p className="mt-1 text-lg font-semibold">{student.points}</p>
-              <p className="text-[11px] text-muted-foreground">Points</p>
-            </div>
-            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
-              <Flame className="mx-auto size-4 text-fuchsia-500" />
-              <p className="mt-1 text-lg font-semibold">{student.streak}</p>
-              <p className="text-[11px] text-muted-foreground">Streak</p>
-            </div>
+            <Button
+              onClick={openDnaReport}
+              disabled={!student.onboard}
+              variant={student.onboard ? "primary" : "outline"}
+              className="w-full"
+            >
+              <Sparkles className="size-4" />
+              {student.onboard ? "View DNA report" : "DNA report not generated"}
+            </Button>
           </div>
         </div>
       </section>
@@ -455,6 +502,10 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
               { label: "Free trial", value: student.freeTrial },
               { label: "Created", value: displayDateValue(student.createdAt) },
               { label: "Last activity", value: displayDateTime(student.lastActivity) },
+              {
+                label: "DNA report",
+                value: student.onboard ? "generated" : "not generated",
+              },
             ]}
           />
         </Panel>
@@ -492,6 +543,14 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
           <EmptyState message="No tracker chapters yet." />
         )}
       </Panel>
+
+      <StudyDnaDialog
+        open={dnaOpen}
+        loading={dnaLoading}
+        error={dnaError}
+        profile={dnaProfile}
+        onClose={() => setDnaOpen(false)}
+      />
     </div>
   );
 }

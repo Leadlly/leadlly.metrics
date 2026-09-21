@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { applyStudentPlanFilter, rangeFromRequest } from "@/lib/api";
+import { applyStudentPlanFilter, applyOnboardFilter, rangeFromRequest } from "@/lib/api";
 import { daysAgo } from "@/lib/dates";
 import { mapStudent, parseObjectId } from "@/lib/mappers";
 import { getDb } from "@/lib/mongodb";
@@ -33,6 +33,7 @@ const LIST_PROJECTION = {
   "details.report.dailyReport.quiz": 1,
   "details.report.dailyReport.overall": 1,
   "about.gender": 1,
+  onboard: 1,
   createdAt: 1,
   updatedAt: 1,
   disabled: 1,
@@ -56,6 +57,7 @@ function studentMatch(
 ) {
   const match: Record<string, unknown> = { ...params.createdAt };
   applyStudentPlanFilter(match, params.category);
+  applyOnboardFilter(match, params.onboard);
   const q = params.q?.trim();
   if (q) {
     const regex = { $regex: escapeRegex(q), $options: "i" };

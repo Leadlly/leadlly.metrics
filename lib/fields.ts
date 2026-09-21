@@ -18,6 +18,7 @@ export const STUDENT_EXPORT_FIELDS: ExportField[] = [
   { key: "coaching", label: "Coaching" },
   { key: "institute", label: "Institute", defaultSelected: true },
   { key: "subscription", label: "Subscription", defaultSelected: true },
+  { key: "onboard", label: "DNA report" },
   { key: "planId", label: "Plan ID" },
   { key: "freeTrial", label: "Free trial" },
   { key: "level", label: "Level" },

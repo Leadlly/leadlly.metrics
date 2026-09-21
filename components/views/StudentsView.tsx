@@ -48,6 +48,7 @@ type Student = {
   gender?: string;
   createdAt?: string;
   lastActivity?: string;
+  onboard?: boolean;
   disabled?: boolean;
   dailyReportDate?: string;
   dailyReportOverall?: number;
@@ -137,6 +138,12 @@ function StudentCell({
       return (
         <span className="text-muted-foreground">{displayDateValue(row.createdAt)}</span>
       );
+    case "onboard":
+      return (
+        <Badge tone={row.onboard ? "green" : "neutral"}>
+          {row.onboard ? "generated" : "not generated"}
+        </Badge>
+      );
     case "disabled":
       return displayValue(row.disabled);
     default:
@@ -150,12 +157,14 @@ export function StudentsView() {
   const [to, setTo] = useState("");
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("all");
+  const [onboard, setOnboard] = useState("all");
   const [leadTag, setLeadTag] = useState("all");
   const [applied, setApplied] = useState({
     from: "",
     to: "",
     q: "",
     category: "all",
+    onboard: "all",
     leadTag: "all",
   });
   const [page, setPage] = useState(1);
@@ -188,6 +197,7 @@ export function StudentsView() {
     if (applied.to) params.set("to", applied.to);
     if (applied.q) params.set("q", applied.q);
     if (applied.category !== "all") params.set("category", applied.category);
+    if (applied.onboard !== "all") params.set("onboard", applied.onboard);
     if (applied.leadTag === "untagged" && taggedQuery) {
       params.set("excludeIds", taggedQuery);
     } else if (applied.leadTag !== "all") {
@@ -298,7 +308,7 @@ export function StudentsView() {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 setPage(1);
-                setApplied({ from, to, q, category, leadTag });
+                setApplied({ from, to, q, category, onboard, leadTag });
               }
             }}
             className="pl-9"
@@ -310,7 +320,7 @@ export function StudentsView() {
           onChange={(e) => {
             setCategory(e.target.value);
             setPage(1);
-            setApplied({ from, to, q, category: e.target.value, leadTag });
+            setApplied({ from, to, q, category: e.target.value, onboard, leadTag });
           }}
         >
           <option value="all">All</option>
@@ -318,12 +328,32 @@ export function StudentsView() {
           <option value="subscription">Subscription</option>
         </Select>
         <Select
+          value={onboard}
+          className="w-44 shrink-0 sm:w-48"
+          onChange={(e) => {
+            setOnboard(e.target.value);
+            setPage(1);
+            setApplied({
+              from,
+              to,
+              q,
+              category,
+              onboard: e.target.value,
+              leadTag,
+            });
+          }}
+        >
+          <option value="all">All DNA reports</option>
+          <option value="generated">DNA generated</option>
+          <option value="missing">DNA not generated</option>
+        </Select>
+        <Select
           value={leadTag}
           className="w-40 shrink-0 sm:w-44"
           onChange={(e) => {
             setLeadTag(e.target.value);
             setPage(1);
-            setApplied({ from, to, q, category, leadTag: e.target.value });
+            setApplied({ from, to, q, category, onboard, leadTag: e.target.value });
           }}
         >
           <option value="all">All lead tags</option>

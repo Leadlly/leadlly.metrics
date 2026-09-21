@@ -46,6 +46,22 @@ export function applyStudentPlanFilter(
   return match;
 }
 
+export function applyOnboardFilter(
+  match: Record<string, unknown>,
+  onboard?: string | null,
+) {
+  if (!onboard || onboard === "all") return match;
+  if (onboard === "generated") {
+    match.onboard = true;
+    return match;
+  }
+  if (onboard === "missing") {
+    match.onboard = { $ne: true };
+    return match;
+  }
+  return match;
+}
+
 export function rangeFromRequest(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   return {
@@ -54,6 +70,7 @@ export function rangeFromRequest(request: NextRequest) {
     q: searchParams.get("q"),
     role: searchParams.get("role"),
     category: searchParams.get("category"),
+    onboard: searchParams.get("onboard"),
     ...paginationFromSearch(searchParams),
     createdAt: rangeFromSearch(searchParams),
   };
@@ -66,6 +83,7 @@ export async function parseExportBody(request: Request) {
     q?: string;
     role?: string;
     category?: string;
+    onboard?: string;
     fields?: string[];
     format?: "csv" | "xlsx";
   };
@@ -75,6 +93,7 @@ export async function parseExportBody(request: Request) {
     q: body.q || null,
     role: body.role || null,
     category: body.category || null,
+    onboard: body.onboard || null,
     fields: Array.isArray(body.fields) ? body.fields.map(String) : [],
     format: body.format === "xlsx" ? "xlsx" : "csv",
     createdAt: createdAtFilter({ from: body.from, to: body.to }),

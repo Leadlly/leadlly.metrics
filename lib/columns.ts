@@ -11,6 +11,7 @@ export const STUDENT_TABLE_COLUMNS: TableColumn[] = [
   { key: "examClass", label: "Exam / class", defaultVisible: true },
   { key: "institute", label: "Institute", defaultVisible: true },
   { key: "subscription", label: "Subscription", defaultVisible: true },
+  { key: "onboard", label: "DNA report", defaultVisible: true },
   { key: "lastActivity", label: "Last activity", defaultVisible: true },
   { key: "createdAt", label: "Created", defaultVisible: true },
   { key: "email", label: "Email" },
@@ -81,10 +82,19 @@ export function normalizeColumnPrefs(
     ...(stored?.order || []).filter((key) => known.has(key)),
     ...defaults.order.filter((key) => !(stored?.order || []).includes(key)),
   ];
+  const previousOrder = stored?.order || [];
   const visibleSet = new Set(
     (stored?.visible || defaults.visible).filter((key) => known.has(key)),
   );
   for (const key of locked) visibleSet.add(key);
+  for (const column of catalog) {
+    if (
+      (column.defaultVisible || column.locked) &&
+      !previousOrder.includes(column.key)
+    ) {
+      visibleSet.add(column.key);
+    }
+  }
   if (visibleSet.size === 0 && order[0]) visibleSet.add(order[0]);
   return { order, visible: order.filter((key) => visibleSet.has(key)) };
 }
