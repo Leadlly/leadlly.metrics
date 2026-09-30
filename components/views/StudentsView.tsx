@@ -75,7 +75,7 @@ type AppliedFilters = {
   q: string;
   category: string;
   onboard: string;
-  leadTag: string;
+  leadTags: string[];
   efficiency: string;
 };
 
@@ -91,6 +91,14 @@ const FILTER_KEYS = [
   "efficiency",
 ] as const;
 
+function parseLeadTags(value: string | null | undefined): string[] {
+  if (!value || value === "all") return [];
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 function readFilters(params: URLSearchParams): AppliedFilters {
   return {
     from: params.get("from") || "",
@@ -98,7 +106,7 @@ function readFilters(params: URLSearchParams): AppliedFilters {
     q: params.get("q") || "",
     category: params.get("category") || "all",
     onboard: params.get("onboard") || "all",
-    leadTag: params.get("leadTag") || "all",
+    leadTags: parseLeadTags(params.get("leadTag")),
     efficiency: params.get("efficiency") || "all",
   };
 }
@@ -110,7 +118,7 @@ function filtersToParams(filters: AppliedFilters) {
   if (filters.q) params.set("q", filters.q);
   if (filters.category !== "all") params.set("category", filters.category);
   if (filters.onboard !== "all") params.set("onboard", filters.onboard);
-  if (filters.leadTag !== "all") params.set("leadTag", filters.leadTag);
+  if (filters.leadTags.length) params.set("leadTag", filters.leadTags.join(","));
   if (filters.efficiency !== "all") params.set("efficiency", filters.efficiency);
   return params;
 }
@@ -129,14 +137,16 @@ function loadSavedFilters(): AppliedFilters | null {
       localStorage.getItem(FILTER_STORAGE_KEY) ||
       sessionStorage.getItem(FILTER_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<AppliedFilters>;
+    const parsed = JSON.parse(raw) as Partial<AppliedFilters> & { leadTag?: string };
     const filters: AppliedFilters = {
       from: parsed.from || "",
       to: parsed.to || "",
       q: parsed.q || "",
       category: parsed.category || "all",
       onboard: parsed.onboard || "all",
-      leadTag: parsed.leadTag || "all",
+      leadTags: Array.isArray(parsed.leadTags)
+        ? parsed.leadTags.filter(Boolean)
+        : parseLeadTags(parsed.leadTag),
       efficiency: parsed.efficiency || "all",
     };
     // Migrate older sessionStorage copies into localStorage.
@@ -288,17 +298,42 @@ export function StudentsView() {
     [pathname, router],
   );
 
-  const taggedQuery = useMemo(() => {
-    if (applied.leadTag === "all") return "";
-    if (applied.leadTag === "untagged") {
-      return Object.keys(leadTags.tags).sort().join(",");
+  const leadFilter = useMemo(() => {
+    const selected = applied.leadTags;
+    if (!selected.length) return { mode: "all" as const, ids: "" };
+
+    const wantUntagged = selected.includes("untagged");
+    const tagIds = selected.filter((id) => id !== "untagged");
+    const taggedEntries = Object.entries(leadTags.tags);
+
+    if (wantUntagged && !tagIds.length) {
+      return {
+        mode: "exclude" as const,
+        ids: Object.keys(leadTags.tags).sort().join(","),
+      };
     }
-    return Object.entries(leadTags.tags)
-      .filter(([, tag]) => tag === applied.leadTag)
-      .map(([id]) => id)
-      .sort()
-      .join(",");
-  }, [applied.leadTag, leadTags.tags]);
+
+    if (!wantUntagged && tagIds.length) {
+      return {
+        mode: "include" as const,
+        ids: taggedEntries
+          .filter(([, tag]) => tagIds.includes(tag))
+          .map(([id]) => id)
+          .sort()
+          .join(","),
+      };
+    }
+
+    // Untagged + specific tags: keep untagged and those tags, exclude other tags.
+    return {
+      mode: "exclude" as const,
+      ids: taggedEntries
+        .filter(([, tag]) => !tagIds.includes(tag))
+        .map(([id]) => id)
+        .sort()
+        .join(","),
+    };
+  }, [applied.leadTags, leadTags.tags]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -309,10 +344,8 @@ export function StudentsView() {
     if (applied.q) params.set("q", applied.q);
     if (applied.category !== "all") params.set("category", applied.category);
     if (applied.onboard !== "all") params.set("onboard", applied.onboard);
-    if (applied.leadTag === "untagged" && taggedQuery) {
-      params.set("excludeIds", taggedQuery);
-    } else if (applied.leadTag !== "all") {
-      if (!taggedQuery) {
+    if (leadFilter.mode === "include") {
+      if (!leadFilter.ids) {
         setData({
           total: 0,
           page: 1,
@@ -323,7 +356,9 @@ export function StudentsView() {
         setLoading(false);
         return;
       }
-      params.set("ids", taggedQuery);
+      params.set("ids", leadFilter.ids);
+    } else if (leadFilter.mode === "exclude" && leadFilter.ids) {
+      params.set("excludeIds", leadFilter.ids);
     }
     try {
       const res = await fetch(`/api/students?${params.toString()}`);
@@ -334,7 +369,7 @@ export function StudentsView() {
     } finally {
       setLoading(false);
     }
-  }, [applied, taggedQuery]);
+  }, [applied, leadFilter]);
 
   useEffect(() => {
     if (!filtersReady) return;
@@ -452,7 +487,7 @@ export function StudentsView() {
             to: applied.to,
             category: applied.category,
             onboard: applied.onboard,
-            leadTag: applied.leadTag,
+            leadTags: applied.leadTags,
             efficiency: applied.efficiency,
           }}
           tagCounts={tagCounts}

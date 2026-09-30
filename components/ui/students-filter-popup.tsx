@@ -28,7 +28,7 @@ export type StudentsFilterValues = {
   to: string;
   category: string;
   onboard: string;
-  leadTag: string;
+  leadTags: string[];
   efficiency: string;
 };
 
@@ -139,13 +139,15 @@ function sectionSummary(
       if (values.onboard === "missing") return "Not generated";
       return "All";
     case "leadTag":
-      if (values.leadTag === "untagged") return "Untagged";
-      if (values.leadTag !== "all") {
-        const tag = STUDENT_LEAD_TAGS.find((item) => item.id === values.leadTag);
-        const count = tagCounts[values.leadTag];
-        return count ? `${tag?.label || values.leadTag} (${count})` : tag?.label || values.leadTag;
+      if (!values.leadTags.length) return "All";
+      if (values.leadTags.length === 1) {
+        const id = values.leadTags[0];
+        if (id === "untagged") return "Untagged";
+        const tag = STUDENT_LEAD_TAGS.find((item) => item.id === id);
+        const count = tagCounts[id];
+        return count ? `${tag?.label || id} (${count})` : tag?.label || id;
       }
-      return "All";
+      return `${values.leadTags.length} selected`;
     case "efficiency":
       return efficiencyFilterLabel(values.efficiency);
     case "created":
@@ -160,7 +162,7 @@ function isSectionActive(section: FilterSection, values: StudentsFilterValues) {
     case "onboard":
       return values.onboard !== "all";
     case "leadTag":
-      return values.leadTag !== "all";
+      return values.leadTags.length > 0;
     case "efficiency":
       return values.efficiency !== "all";
     case "created":
@@ -213,9 +215,14 @@ const EMPTY_FILTERS: StudentsFilterValues = {
   to: "",
   category: "all",
   onboard: "all",
-  leadTag: "all",
+  leadTags: [],
   efficiency: "all",
 };
+
+function toggleLeadTag(current: string[], id: string) {
+  if (current.includes(id)) return current.filter((item) => item !== id);
+  return [...current, id];
+}
 
 export function StudentsFilterPopup({
   value,
@@ -433,16 +440,22 @@ export function StudentsFilterPopup({
 
                 {section === "leadTag" ? (
                   <>
+                    <p className="px-3 pb-1 text-[11px] text-muted-foreground">
+                      Select one or more tags
+                    </p>
                     <OptionButton
-                      selected={draft.leadTag === "all"}
-                      onClick={() => setDraft((current) => ({ ...current, leadTag: "all" }))}
+                      selected={draft.leadTags.length === 0}
+                      onClick={() => setDraft((current) => ({ ...current, leadTags: [] }))}
                     >
                       All lead tags
                     </OptionButton>
                     <OptionButton
-                      selected={draft.leadTag === "untagged"}
+                      selected={draft.leadTags.includes("untagged")}
                       onClick={() =>
-                        setDraft((current) => ({ ...current, leadTag: "untagged" }))
+                        setDraft((current) => ({
+                          ...current,
+                          leadTags: toggleLeadTag(current.leadTags, "untagged"),
+                        }))
                       }
                     >
                       Untagged
@@ -450,9 +463,12 @@ export function StudentsFilterPopup({
                     {STUDENT_LEAD_TAGS.map((tag) => (
                       <OptionButton
                         key={tag.id}
-                        selected={draft.leadTag === tag.id}
+                        selected={draft.leadTags.includes(tag.id)}
                         onClick={() =>
-                          setDraft((current) => ({ ...current, leadTag: tag.id }))
+                          setDraft((current) => ({
+                            ...current,
+                            leadTags: toggleLeadTag(current.leadTags, tag.id),
+                          }))
                         }
                       >
                         {tag.label}
