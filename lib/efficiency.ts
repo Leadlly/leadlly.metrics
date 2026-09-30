@@ -1,4 +1,4 @@
-import { isSameIstDay } from "@/lib/ist";
+import { addYmd, isSameIstDay, istNowYmd } from "@/lib/ist";
 
 export const efficiencyOptions = [
   {
@@ -40,11 +40,12 @@ export function isTodayInKolkata(value?: Date | string | null) {
   return isSameIstDay(value);
 }
 
-export function todayEfficiency(
-  date?: Date | string | null,
-  overall?: number | null,
-) {
-  if (!isTodayInKolkata(date)) return 0;
+export function previousDayYmd() {
+  return addYmd(istNowYmd(), -1);
+}
+
+/** Row color uses yesterday's overall; falls back to 0 when missing. */
+export function previousDayEfficiency(overall?: number | null) {
   return Number(overall || 0);
 }
 

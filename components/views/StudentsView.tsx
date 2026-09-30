@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download, Search } from "lucide-react";
 import { displayDateTime, displayDateValue, displayValue } from "@/lib/display";
-import { efficiencyOptions, efficiencyRowClass, todayEfficiency } from "@/lib/efficiency";
+import { efficiencyOptions, efficiencyRowClass, previousDayEfficiency } from "@/lib/efficiency";
 import { STUDENT_EXPORT_FIELDS } from "@/lib/fields";
 import { STUDENT_TABLE_COLUMNS } from "@/lib/columns";
 import { STUDENT_LEAD_TAGS, type LeadTag } from "@/lib/student-tags";
@@ -52,6 +52,7 @@ type Student = {
   disabled?: boolean;
   dailyReportDate?: string;
   dailyReportOverall?: number;
+  previousDayOverall?: number;
 };
 
 type Payload = {
@@ -450,7 +451,7 @@ export function StudentsView() {
         />
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">Today’s efficiency</span>
+        <span className="font-medium text-foreground">Yesterday’s efficiency</span>
         {efficiencyOptions.map((option) => (
           <span key={option.label} className="inline-flex items-center gap-1.5">
             <span
@@ -540,10 +541,7 @@ export function StudentsView() {
               </tr>
             ) : data?.rows.length ? (
               data.rows.map((row) => {
-                const efficiency = todayEfficiency(
-                  row.dailyReportDate,
-                  row.dailyReportOverall,
-                );
+                const efficiency = previousDayEfficiency(row.previousDayOverall);
                 const isSelected = selected.has(row.id);
                 return (
                   <tr

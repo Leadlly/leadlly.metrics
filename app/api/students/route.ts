@@ -3,6 +3,7 @@ import { applyStudentPlanFilter, applyOnboardFilter, rangeFromRequest } from "@/
 import { daysAgo } from "@/lib/dates";
 import { mapStudent, parseObjectId } from "@/lib/mappers";
 import { getDb } from "@/lib/mongodb";
+import { previousDayOverallByUser } from "@/lib/student-reports";
 import { escapeRegex } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -98,6 +99,12 @@ export async function GET(request: NextRequest) {
         .toArray(),
     ]);
 
+    const mapped = rows.map((doc) => mapStudent(doc as Record<string, unknown>));
+    const previousDayOverall = await previousDayOverallByUser(
+      db,
+      rows.map((doc) => doc._id),
+    );
+
     return Response.json({
       total,
       page: params.page,
@@ -109,7 +116,10 @@ export async function GET(request: NextRequest) {
         active7d,
         active30d,
       },
-      rows: rows.map((doc) => mapStudent(doc as Record<string, unknown>)),
+      rows: mapped.map((row) => ({
+        ...row,
+        previousDayOverall: previousDayOverall.get(row.id) ?? 0,
+      })),
     });
   } catch (error) {
     console.error(error);

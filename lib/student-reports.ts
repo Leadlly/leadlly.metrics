@@ -2,6 +2,8 @@ import type { Db, ObjectId } from "mongodb";
 import {
   addYmd,
   eachYmd,
+  istDayEnd,
+  istDayStart,
   istIsoWeekStartYmd,
   istMonthEndYmd,
   istMonthStartYmd,
@@ -9,6 +11,7 @@ import {
   istYmd,
   weekdayFromYmd,
 } from "@/lib/ist";
+import { asId } from "@/lib/mappers";
 
 export type ReportDay = {
   day: string;
@@ -17,6 +20,40 @@ export type ReportDay = {
   quiz: number;
   overall: number;
 };
+
+/** Yesterday (IST) overall efficiency keyed by user id hex string. */
+export async function previousDayOverallByUser(
+  db: Db,
+  userIds: ObjectId[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (!userIds.length) return result;
+
+  const ymd = addYmd(istNowYmd(), -1);
+  const start = istDayStart(ymd);
+  const end = istDayEnd(ymd);
+  const hexIds = userIds.map((id) => id.toHexString());
+
+  const reports = await db
+    .collection("studentreports")
+    .find({
+      $or: [{ user: { $in: userIds } }, { user: { $in: hexIds } }],
+      date: { $gte: start, $lte: end },
+    })
+    .project({ user: 1, overall: 1 })
+    .toArray();
+
+  for (const doc of reports) {
+    const id = asId(doc.user);
+    if (!id) continue;
+    const overall = Number(doc.overall || 0);
+    const current = result.get(id) ?? 0;
+    // Prefer the higher overall if duplicate docs exist for the same day.
+    if (overall >= current) result.set(id, overall);
+  }
+
+  return result;
+}
 
 function percentChange(current: number, previous: number) {
   if (!previous) return current ? 100 : 0;

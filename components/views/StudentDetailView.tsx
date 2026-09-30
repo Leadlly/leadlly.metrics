@@ -14,7 +14,7 @@ import { StudentPlannerPanels } from "@/components/views/StudentPlannerPanels";
 import { StudyDnaDialog } from "@/components/views/StudyDnaReport";
 import { LeadTagBadge } from "@/components/ui/lead-tag-menu";
 import { displayDateTime, displayDateValue, displayValue } from "@/lib/display";
-import { efficiencyRowClass, isTodayInKolkata } from "@/lib/efficiency";
+import { efficiencyRowClass, isTodayInKolkata, previousDayYmd } from "@/lib/efficiency";
 import { useStudentLeadTags } from "@/hooks/use-student-lead-tags";
 import type { StudentDetail, TrackerRow } from "@/lib/mappers";
 import type { StudentPlanner } from "@/lib/planner";
@@ -152,6 +152,9 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
   const todayOverall = student && isToday ? student.dailyReportOverall : 0;
   const todaySession = student && isToday ? student.dailyReportSession : 0;
   const todayQuiz = student && isToday ? student.dailyReportQuiz : 0;
+  const yesterdayYmd = previousDayYmd();
+  const yesterdayOverall =
+    (data?.reports.overall || []).find((day) => day.date === yesterdayYmd)?.overall ?? 0;
 
   const weeklyChart = useMemo(
     () =>
@@ -229,7 +232,7 @@ export function StudentDetailView({ studentId }: { studentId: string }) {
       <section
         className={cn(
           "rounded-2xl border border-white/70 p-4 shadow-sm sm:rounded-3xl sm:p-6",
-          efficiencyRowClass(todayOverall),
+          efficiencyRowClass(yesterdayOverall),
         )}
       >
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
