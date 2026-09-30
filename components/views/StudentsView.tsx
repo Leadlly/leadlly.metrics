@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download, Search } from "lucide-react";
 import { displayDateTime, displayDateValue, displayValue } from "@/lib/display";
 import { efficiencyOptions, efficiencyRowClass, todayEfficiency } from "@/lib/efficiency";
@@ -12,7 +12,7 @@ import { STUDENT_LEAD_TAGS, type LeadTag } from "@/lib/student-tags";
 import { fullName, cn } from "@/lib/utils";
 import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { useStudentLeadTags } from "@/hooks/use-student-lead-tags";
-import { DateRangeFilter, PageHeader, Pagination } from "@/components/ui/filters";
+import { DateRangeFilter, PageHeader } from "@/components/ui/filters";
 import { downloadExport, ExportDialog } from "@/components/ui/export-dialog";
 import { ColumnPicker } from "@/components/ui/column-picker";
 import { TableFrame } from "@/components/ui/data-table";
@@ -60,8 +60,68 @@ type Payload = {
   pages: number;
   stats: { total: number; active1d: number; active7d: number; active30d: number };
   rows: Student[];
-  recent: Student[];
 };
+
+type AppliedFilters = {
+  from: string;
+  to: string;
+  q: string;
+  category: string;
+  onboard: string;
+  leadTag: string;
+};
+
+const LIST_LIMIT = "10000";
+const FILTER_STORAGE_KEY = "metrics-students-filters";
+const FILTER_KEYS = ["from", "to", "q", "category", "onboard", "leadTag"] as const;
+
+function readFilters(params: URLSearchParams): AppliedFilters {
+  return {
+    from: params.get("from") || "",
+    to: params.get("to") || "",
+    q: params.get("q") || "",
+    category: params.get("category") || "all",
+    onboard: params.get("onboard") || "all",
+    leadTag: params.get("leadTag") || "all",
+  };
+}
+
+function filtersToParams(filters: AppliedFilters) {
+  const params = new URLSearchParams();
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (filters.q) params.set("q", filters.q);
+  if (filters.category !== "all") params.set("category", filters.category);
+  if (filters.onboard !== "all") params.set("onboard", filters.onboard);
+  if (filters.leadTag !== "all") params.set("leadTag", filters.leadTag);
+  return params;
+}
+
+function saveFilters(filters: AppliedFilters) {
+  try {
+    sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function loadSavedFilters(): AppliedFilters | null {
+  try {
+    const raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AppliedFilters>;
+    return {
+      from: parsed.from || "",
+      to: parsed.to || "",
+      q: parsed.q || "",
+      category: parsed.category || "all",
+      onboard: parsed.onboard || "all",
+      leadTag: parsed.leadTag || "all",
+    };
+  } catch {
+    return null;
+  }
+}
 
 function categoryTone(value: string) {
   if (value === "free") return "neutral" as const;
@@ -153,21 +213,11 @@ function StudentCell({
 
 export function StudentsView() {
   const router = useRouter();
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [q, setQ] = useState("");
-  const [category, setCategory] = useState("all");
-  const [onboard, setOnboard] = useState("all");
-  const [leadTag, setLeadTag] = useState("all");
-  const [applied, setApplied] = useState({
-    from: "",
-    to: "",
-    q: "",
-    category: "all",
-    onboard: "all",
-    leadTag: "all",
-  });
-  const [page, setPage] = useState(1);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const applied = useMemo(() => readFilters(searchParams), [searchParams]);
+  const [filtersReady, setFiltersReady] = useState(false);
+  const [q, setQ] = useState(applied.q);
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -176,6 +226,41 @@ export function StudentsView() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const columns = useColumnPrefs("students", STUDENT_TABLE_COLUMNS);
   const leadTags = useStudentLeadTags();
+
+  useEffect(() => {
+    if (filtersReady) return;
+    const hasUrlFilters = FILTER_KEYS.some((key) => searchParams.has(key));
+    if (hasUrlFilters) {
+      setFiltersReady(true);
+      return;
+    }
+    const saved = loadSavedFilters();
+    const query = saved ? filtersToParams(saved).toString() : "";
+    if (query) {
+      router.replace(`${pathname}?${query}`, { scroll: false });
+      return;
+    }
+    setFiltersReady(true);
+  }, [filtersReady, searchParams, pathname, router]);
+
+  useEffect(() => {
+    setQ(applied.q);
+  }, [applied.q]);
+
+  useEffect(() => {
+    if (!filtersReady) return;
+    saveFilters(applied);
+  }, [applied, filtersReady]);
+
+  const commitFilters = useCallback(
+    (next: AppliedFilters) => {
+      saveFilters(next);
+      const params = filtersToParams(next);
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router],
+  );
 
   const taggedQuery = useMemo(() => {
     if (applied.leadTag === "all") return "";
@@ -192,7 +277,7 @@ export function StudentsView() {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    const params = new URLSearchParams({ page: String(page) });
+    const params = new URLSearchParams({ limit: LIST_LIMIT });
     if (applied.from) params.set("from", applied.from);
     if (applied.to) params.set("to", applied.to);
     if (applied.q) params.set("q", applied.q);
@@ -208,7 +293,6 @@ export function StudentsView() {
           pages: 1,
           stats: { total: 0, active1d: 0, active7d: 0, active30d: 0 },
           rows: [],
-          recent: [],
         });
         setLoading(false);
         return;
@@ -224,15 +308,16 @@ export function StudentsView() {
     } finally {
       setLoading(false);
     }
-  }, [applied, page, taggedQuery]);
+  }, [applied, taggedQuery]);
 
   useEffect(() => {
+    if (!filtersReady) return;
     load();
-  }, [load]);
+  }, [load, filtersReady]);
 
   useEffect(() => {
     setSelected(new Set());
-  }, [page, applied]);
+  }, [applied]);
 
   const visibleIds = data?.rows.map((row) => row.id) || [];
   const selectedOnPage = visibleIds.filter((id) => selected.has(id));
@@ -307,20 +392,17 @@ export function StudentsView() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                setPage(1);
-                setApplied({ from, to, q, category, onboard, leadTag });
+                commitFilters({ ...applied, q });
               }
             }}
             className="pl-9"
           />
         </div>
         <Select
-          value={category}
+          value={applied.category}
           className="w-32 shrink-0 sm:w-36"
           onChange={(e) => {
-            setCategory(e.target.value);
-            setPage(1);
-            setApplied({ from, to, q, category: e.target.value, onboard, leadTag });
+            commitFilters({ ...applied, category: e.target.value });
           }}
         >
           <option value="all">All</option>
@@ -328,19 +410,10 @@ export function StudentsView() {
           <option value="subscription">Subscription</option>
         </Select>
         <Select
-          value={onboard}
+          value={applied.onboard}
           className="w-44 shrink-0 sm:w-48"
           onChange={(e) => {
-            setOnboard(e.target.value);
-            setPage(1);
-            setApplied({
-              from,
-              to,
-              q,
-              category,
-              onboard: e.target.value,
-              leadTag,
-            });
+            commitFilters({ ...applied, onboard: e.target.value });
           }}
         >
           <option value="all">All DNA reports</option>
@@ -348,12 +421,10 @@ export function StudentsView() {
           <option value="missing">DNA not generated</option>
         </Select>
         <Select
-          value={leadTag}
+          value={applied.leadTag}
           className="w-40 shrink-0 sm:w-44"
           onChange={(e) => {
-            setLeadTag(e.target.value);
-            setPage(1);
-            setApplied({ from, to, q, category, onboard, leadTag: e.target.value });
+            commitFilters({ ...applied, leadTag: e.target.value });
           }}
         >
           <option value="all">All lead tags</option>
@@ -366,18 +437,15 @@ export function StudentsView() {
           ))}
         </Select>
         <DateRangeFilter
-          from={from}
-          to={to}
+          from={applied.from}
+          to={applied.to}
           className="w-auto shrink-0"
           onChange={(nextFrom, nextTo) => {
-            setFrom(nextFrom);
-            setTo(nextTo);
-            setPage(1);
-            setApplied((current) => ({
-              ...current,
+            commitFilters({
+              ...applied,
               from: nextFrom,
               to: nextTo,
-            }));
+            });
           }}
         />
       </div>
@@ -407,10 +475,17 @@ export function StudentsView() {
         <StatCard label="Active 30 days" value={data?.stats.active30d ?? 0} />
       </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <Panel
-          title="User list"
-          action={
+      <Panel
+        title="User list"
+        action={
+          <div className="flex items-center gap-3">
+            {data ? (
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                {data.rows.length === data.total
+                  ? `${data.total} students`
+                  : `Showing ${data.rows.length} of ${data.total}`}
+              </span>
+            ) : null}
             <ColumnPicker
               catalog={STUDENT_TABLE_COLUMNS}
               order={columns.prefs.order}
@@ -419,133 +494,99 @@ export function StudentsView() {
               onReorder={columns.reorder}
               onReset={columns.reset}
             />
-          }
-        >
-          <TableFrame columnCount={columns.visibleColumns.length + 1}>
-            <thead>
-              <tr className="border-b border-border text-xs text-muted-foreground">
-                <th className="w-10">
-                  <SelectAllCheckbox
-                    checked={allSelected}
-                    indeterminate={someSelected}
-                    onChange={toggleAll}
-                  />
-                </th>
-                {selected.size > 0 ? (
-                  <th colSpan={columns.visibleColumns.length}>
-                    <div className="flex flex-wrap items-center gap-3 py-0.5 text-sm text-foreground">
-                      <span className="font-medium">
-                        {selected.size} selected
-                      </span>
-                      <LeadTagMenu count={selected.size} onTag={applyLeadTag} />
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => setSelected(new Set())}
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </th>
-                ) : (
-                  columns.visibleColumns.map((column) => (
-                    <th key={column.key}>{column.label}</th>
-                  ))
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={columns.visibleColumns.length + 1}
-                    className="py-10 text-center text-muted-foreground"
-                  >
-                    Loading students…
-                  </td>
-                </tr>
-              ) : data?.rows.length ? (
-                data.rows.map((row) => {
-                  const efficiency = todayEfficiency(
-                    row.dailyReportDate,
-                    row.dailyReportOverall,
-                  );
-                  const isSelected = selected.has(row.id);
-                  return (
-                    <tr
-                      key={row.id}
-                      className={cn(
-                        "cursor-pointer border-b border-border/60 last:border-0 hover:brightness-[0.97]",
-                        efficiencyRowClass(efficiency),
-                      )}
-                      onClick={() => router.push(`/students/${row.id}`)}
+          </div>
+        }
+      >
+        <TableFrame columnCount={columns.visibleColumns.length + 1} stickyHeader>
+          <thead className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur [&_th]:bg-transparent">
+            <tr className="border-b border-border text-xs text-muted-foreground">
+              <th className="w-10">
+                <SelectAllCheckbox
+                  checked={allSelected}
+                  indeterminate={someSelected}
+                  onChange={toggleAll}
+                />
+              </th>
+              {selected.size > 0 ? (
+                <th colSpan={columns.visibleColumns.length}>
+                  <div className="flex flex-wrap items-center gap-3 py-0.5 text-sm text-foreground">
+                    <span className="font-medium">{selected.size} selected</span>
+                    <LeadTagMenu count={selected.size} onTag={applyLeadTag} />
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setSelected(new Set())}
                     >
-                      <td
-                        onClick={(event) => event.stopPropagation()}
-                        className="w-10"
-                      >
-                        <RowCheckbox
-                          checked={isSelected}
-                          label={`Select ${fullName(row.firstname, row.lastname)}`}
-                          onChange={(checked) => toggleRow(row.id, checked)}
+                      Clear
+                    </button>
+                  </div>
+                </th>
+              ) : (
+                columns.visibleColumns.map((column) => (
+                  <th key={column.key}>{column.label}</th>
+                ))
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td
+                  colSpan={columns.visibleColumns.length + 1}
+                  className="py-10 text-center text-muted-foreground"
+                >
+                  Loading students…
+                </td>
+              </tr>
+            ) : data?.rows.length ? (
+              data.rows.map((row) => {
+                const efficiency = todayEfficiency(
+                  row.dailyReportDate,
+                  row.dailyReportOverall,
+                );
+                const isSelected = selected.has(row.id);
+                return (
+                  <tr
+                    key={row.id}
+                    className={cn(
+                      "cursor-pointer border-b border-border/60 last:border-0 hover:brightness-[0.97]",
+                      efficiencyRowClass(efficiency),
+                    )}
+                    onClick={() => router.push(`/students/${row.id}`)}
+                  >
+                    <td
+                      onClick={(event) => event.stopPropagation()}
+                      className="w-10"
+                    >
+                      <RowCheckbox
+                        checked={isSelected}
+                        label={`Select ${fullName(row.firstname, row.lastname)}`}
+                        onChange={(checked) => toggleRow(row.id, checked)}
+                      />
+                    </td>
+                    {columns.visibleColumns.map((column) => (
+                      <td key={column.key}>
+                        <StudentCell
+                          columnKey={column.key}
+                          row={row}
+                          tagId={leadTags.tags[row.id]}
+                          onRemoveTag={() => leadTags.setTag([row.id], null)}
                         />
                       </td>
-                      {columns.visibleColumns.map((column) => (
-                        <td key={column.key}>
-                          <StudentCell
-                            columnKey={column.key}
-                            row={row}
-                            tagId={leadTags.tags[row.id]}
-                            onRemoveTag={() => leadTags.setTag([row.id], null)}
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={columns.visibleColumns.length + 1}>
-                    <EmptyState message="No students in this range." />
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </TableFrame>
-          {data ? (
-            <Pagination
-              page={data.page}
-              pages={data.pages}
-              total={data.total}
-              onPage={setPage}
-            />
-          ) : null}
-        </Panel>
-
-        <Panel title="Latest activity">
-          <div className="space-y-4">
-            {data?.recent?.length ? (
-              data.recent.map((row) => (
-                <div
-                  key={row.id}
-                  className="cursor-pointer border-b border-border/60 pb-3 last:border-0 hover:opacity-80"
-                  onClick={() => router.push(`/students/${row.id}`)}
-                >
-                  <p className="text-sm font-medium">
-                    {fullName(row.firstname, row.lastname)}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">{row.email}</p>
-                  <p className="mt-1 text-xs text-primary">
-                    {displayDateTime(row.lastActivity)}
-                  </p>
-                </div>
-              ))
+                    ))}
+                  </tr>
+                );
+              })
             ) : (
-              <EmptyState message="No recent activity." />
+              <tr>
+                <td colSpan={columns.visibleColumns.length + 1}>
+                  <EmptyState message="No students in this range." />
+                </td>
+              </tr>
             )}
-          </div>
-        </Panel>
-      </div>
+          </tbody>
+        </TableFrame>
+      </Panel>
 
       <ExportDialog
         open={exportOpen}

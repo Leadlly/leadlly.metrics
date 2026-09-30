@@ -81,7 +81,7 @@ const ICONS: Record<string, LucideIcon> = {
   repeat: Repeat,
 };
 
-const PAGE_COUNT = 8;
+const PAGE_COUNT = 7;
 
 function IconChip({
   name,
@@ -558,57 +558,6 @@ function StrengthsPage({ profile }: { profile: StudyDnaProfile }) {
   );
 }
 
-const TONE_COLOR: Record<string, string> = {
-  muted: "#E5E7EB",
-  class: PASTEL.purple,
-  study: PASTEL.mint,
-  revise: PASTEL.orange,
-};
-
-function RoutinePage({ profile }: { profile: StudyDnaProfile }) {
-  const { routine } = profile;
-  return (
-    <div className="space-y-4">
-      <Eyebrow>Your routine</Eyebrow>
-      <PageTitle>Your typical day</PageTitle>
-      {routine.events.length ? (
-        <div className="mt-2">
-          {routine.events.map((event, index) => (
-            <div key={`${event.time}-${event.label}-${index}`} className="flex min-h-11">
-              <p className="w-20 shrink-0 pt-0.5 text-right text-sm text-muted-foreground">{event.time}</p>
-              <div className="relative mx-3 flex w-4 flex-col items-center">
-                {index < routine.events.length - 1 ? (
-                  <span
-                    className="absolute top-2.5 bottom-[-6px] left-[7px] w-px"
-                    style={{ backgroundColor: PASTEL.purpleSoft }}
-                  />
-                ) : null}
-                <span
-                  className="mt-1.5 size-3 rounded-full"
-                  style={{ backgroundColor: TONE_COLOR[event.tone] }}
-                />
-              </div>
-              <p className="flex-1 pt-0.5 font-semibold text-[#141118]">{event.label}</p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="rounded-[22px] px-4 py-4 text-sm text-muted-foreground" style={{ backgroundColor: PASTEL.purpleWash }}>
-          No wake, class, study, or sleep times were added, so this timeline stays empty.
-        </p>
-      )}
-      <div className="rounded-[24px] px-5 py-4" style={{ backgroundColor: PASTEL.purpleWash }}>
-        <Eyebrow>Study window</Eyebrow>
-        <p className="mt-1 text-3xl font-bold text-[#141118]">{routine.studyWindowLabel}</p>
-        <p className="text-sm text-muted-foreground">of self study on a typical day</p>
-      </div>
-      <div className="rounded-[22px] px-5 py-4" style={{ backgroundColor: PASTEL.purpleSoft }}>
-        <p className="font-bold text-[#141118]">We'll build your plan around this routine - not against it.</p>
-      </div>
-    </div>
-  );
-}
-
 function TestsPage({ profile }: { profile: StudyDnaProfile }) {
   return (
     <div className="space-y-4">
@@ -737,7 +686,6 @@ export function StudyDnaDialog({
         <PrepPage key="prep" profile={profile} />,
         <SignalsPage key="signals" profile={profile} />,
         <StrengthsPage key="strengths" profile={profile} />,
-        <RoutinePage key="routine" profile={profile} />,
         <TestsPage key="tests" profile={profile} />,
         <ClosePage key="close" profile={profile} />,
       ]

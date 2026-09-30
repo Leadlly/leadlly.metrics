@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
       $expr: { $gte: [{ $ifNull: ["$updatedAt", "$createdAt"] }, since] },
     });
 
-    const [total, active1d, active7d, active30d, rows, recent] = await Promise.all([
+    const [total, active1d, active7d, active30d, rows] = await Promise.all([
       users.countDocuments(match),
       users.countDocuments(activity(d1)),
       users.countDocuments(activity(d7)),
@@ -95,11 +95,6 @@ export async function GET(request: NextRequest) {
         .sort({ createdAt: -1 })
         .skip(params.skip)
         .limit(params.limit)
-        .toArray(),
-      users
-        .find(match, { projection: LIST_PROJECTION })
-        .sort({ updatedAt: -1 })
-        .limit(8)
         .toArray(),
     ]);
 
@@ -115,7 +110,6 @@ export async function GET(request: NextRequest) {
         active30d,
       },
       rows: rows.map((doc) => mapStudent(doc as Record<string, unknown>)),
-      recent: recent.map((doc) => mapStudent(doc as Record<string, unknown>)),
     });
   } catch (error) {
     console.error(error);

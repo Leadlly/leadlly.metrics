@@ -15,7 +15,7 @@ export function rangeFromSearch(search: URLSearchParams) {
 export function paginationFromSearch(search: URLSearchParams) {
   const page = Math.max(1, Number(search.get("page") || 1) || 1);
   const limit = Math.min(
-    100,
+    10_000,
     Math.max(1, Number(search.get("limit") || PAGE_SIZE) || PAGE_SIZE),
   );
   return { page, limit, skip: (page - 1) * limit };
