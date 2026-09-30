@@ -8,6 +8,10 @@ import {
   subDays,
   subMonths,
 } from "date-fns";
+import {
+  DayPicker,
+  type DateRange as CalendarRangeValue,
+} from "@daypicker/react";
 import { Check, ChevronLeft, Filter, X } from "lucide-react";
 import { toISODate } from "@/lib/dates";
 import {
@@ -228,6 +232,9 @@ export function StudentsFilterPopup({
   const [openUp, setOpenUp] = useState(false);
   const [section, setSection] = useState<FilterSection>("category");
   const [draft, setDraft] = useState<StudentsFilterValues>(value);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [calendarMonths, setCalendarMonths] = useState(1);
+  const [customRange, setCustomRange] = useState<CalendarRangeValue | undefined>();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const activeCount = countActiveStudentFilters(value);
@@ -235,7 +242,25 @@ export function StudentsFilterPopup({
   useEffect(() => {
     if (!open) return;
     setDraft(value);
+    const matchesPreset = DATE_PRESETS.some((item) => {
+      const range = item.range();
+      return range.from === value.from && range.to === value.to;
+    });
+    const isCustom = Boolean(value.from || value.to) && !matchesPreset;
+    setCustomOpen(isCustom);
+    setCustomRange({
+      from: value.from ? parseISODate(value.from) : undefined,
+      to: value.to ? parseISODate(value.to) : undefined,
+    });
   }, [open, value]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setCalendarMonths(mq.matches ? 2 : 1);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -243,7 +268,7 @@ export function StudentsFilterPopup({
     function place() {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setOpenUp(window.innerHeight - rect.bottom < 420);
+      setOpenUp(window.innerHeight - rect.bottom < (customOpen ? 520 : 420));
     }
 
     function onPointer(event: MouseEvent) {
@@ -267,7 +292,7 @@ export function StudentsFilterPopup({
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, customOpen]);
 
   const activeDatePreset = useMemo(
     () =>
@@ -278,9 +303,19 @@ export function StudentsFilterPopup({
     [draft.from, draft.to],
   );
 
+  const customSelected = customOpen || (!activeDatePreset && Boolean(draft.from || draft.to));
+
   function applyDraft(next: StudentsFilterValues) {
     onApply(next);
     setOpen(false);
+  }
+
+  function applyCustomRange() {
+    if (!customRange?.from) return;
+    const from = toISODate(customRange.from);
+    const to = toISODate(customRange.to ?? customRange.from);
+    setDraft((current) => ({ ...current, from, to }));
+    setCustomOpen(true);
   }
 
   return (
@@ -308,7 +343,10 @@ export function StudentsFilterPopup({
         <div
           ref={panelRef}
           className={cn(
-            "absolute z-50 w-[min(100vw-1.5rem,34rem)] overflow-hidden rounded-2xl border border-border bg-white shadow-lg",
+            "absolute z-50 overflow-hidden rounded-2xl border border-border bg-white shadow-lg",
+            customOpen && section === "created"
+              ? "w-[min(100vw-1.5rem,44rem)]"
+              : "w-[min(100vw-1.5rem,34rem)]",
             openUp ? "bottom-full right-0 mb-2" : "top-full right-0 mt-2",
           )}
         >
@@ -335,7 +373,12 @@ export function StudentsFilterPopup({
                 <ChevronLeft className="size-3.5" />
                 {SECTIONS.find((item) => item.id === section)?.label}
               </div>
-              <div className="max-h-[320px] space-y-1 overflow-y-auto">
+              <div
+                className={cn(
+                  "space-y-1 overflow-y-auto",
+                  customOpen && section === "created" ? "max-h-[420px]" : "max-h-[320px]",
+                )}
+              >
                 {section === "category" ? (
                   <>
                     <OptionButton
@@ -448,22 +491,70 @@ export function StudentsFilterPopup({
                 ) : null}
 
                 {section === "created" ? (
-                  DATE_PRESETS.map((preset) => (
+                  <>
+                    {DATE_PRESETS.map((preset) => (
+                      <OptionButton
+                        key={preset.id}
+                        selected={!customOpen && activeDatePreset === preset.id}
+                        onClick={() => {
+                          const range = preset.range();
+                          setCustomOpen(false);
+                          setDraft((current) => ({
+                            ...current,
+                            from: range.from,
+                            to: range.to,
+                          }));
+                        }}
+                      >
+                        {preset.label}
+                      </OptionButton>
+                    ))}
                     <OptionButton
-                      key={preset.id}
-                      selected={activeDatePreset === preset.id}
+                      selected={customSelected}
                       onClick={() => {
-                        const range = preset.range();
-                        setDraft((current) => ({
-                          ...current,
-                          from: range.from,
-                          to: range.to,
-                        }));
+                        setCustomOpen(true);
+                        setCustomRange({
+                          from: draft.from ? parseISODate(draft.from) : undefined,
+                          to: draft.to ? parseISODate(draft.to) : undefined,
+                        });
                       }}
                     >
-                      {preset.label}
+                      Custom range
                     </OptionButton>
-                  ))
+                    {customOpen ? (
+                      <div className="mt-2 rounded-2xl border border-border bg-white p-2">
+                        <DayPicker
+                          className="metrics-daypicker"
+                          mode="range"
+                          numberOfMonths={calendarMonths}
+                          resetOnSelect
+                          selected={customRange}
+                          onSelect={setCustomRange}
+                          disabled={{ after: istTodayDate() }}
+                          startMonth={new Date(2020, 0)}
+                          endMonth={istTodayDate()}
+                        />
+                        <div className="mt-2 flex justify-end gap-2 border-t border-border pt-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCustomOpen(false)}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={!customRange?.from}
+                            onClick={applyCustomRange}
+                          >
+                            Use range
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
               </div>
             </div>
@@ -511,7 +602,11 @@ export function StudentsFilterPopup({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setDraft(EMPTY_FILTERS)}
+              onClick={() => {
+                setDraft(EMPTY_FILTERS);
+                setCustomOpen(false);
+                setCustomRange(undefined);
+              }}
             >
               Clear all
             </Button>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Download, Search } from "lucide-react";
+import { Download, Maximize2, Minimize2, Search } from "lucide-react";
 import { displayDateTime, displayDateValue, displayValue } from "@/lib/display";
 import {
   efficiencyOptions,
@@ -248,6 +248,7 @@ export function StudentsView() {
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [listFullscreen, setListFullscreen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const columns = useColumnPrefs("students", STUDENT_TABLE_COLUMNS);
   const leadTags = useStudentLeadTags();
@@ -343,6 +344,20 @@ export function StudentsView() {
   useEffect(() => {
     setSelected(new Set());
   }, [applied]);
+
+  useEffect(() => {
+    if (!listFullscreen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setListFullscreen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [listFullscreen]);
 
   const visibleRows = useMemo(() => {
     const rows = data?.rows || [];
@@ -478,8 +493,13 @@ export function StudentsView() {
 
       <Panel
         title="User list"
+        className={cn(
+          listFullscreen &&
+            "fixed inset-0 z-[60] m-0 flex h-dvh max-h-dvh flex-col overflow-hidden rounded-none border-0 bg-white sm:rounded-none",
+        )}
+        bodyClassName={cn(listFullscreen && "min-h-0 flex-1 overflow-hidden")}
         action={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {data ? (
               <span className="hidden text-xs text-muted-foreground sm:inline">
                 {visibleRows.length === (data.total || 0) && applied.efficiency === "all"
@@ -487,6 +507,22 @@ export function StudentsView() {
                   : `Showing ${visibleRows.length} of ${data.total}`}
               </span>
             ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label={listFullscreen ? "Exit full screen" : "Full screen user list"}
+              onClick={() => setListFullscreen((current) => !current)}
+            >
+              {listFullscreen ? (
+                <Minimize2 className="size-4" />
+              ) : (
+                <Maximize2 className="size-4" />
+              )}
+              <span className="hidden sm:inline">
+                {listFullscreen ? "Exit" : "Full screen"}
+              </span>
+            </Button>
             <ColumnPicker
               catalog={STUDENT_TABLE_COLUMNS}
               order={columns.prefs.order}
@@ -498,7 +534,11 @@ export function StudentsView() {
           </div>
         }
       >
-        <TableFrame columnCount={columns.visibleColumns.length + 1} stickyHeader>
+        <TableFrame
+          columnCount={columns.visibleColumns.length + 1}
+          stickyHeader
+          className={cn(listFullscreen && "max-h-[calc(100dvh-5.5rem)]")}
+        >
           <thead className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur [&_th]:bg-transparent">
             <tr className="border-b border-border text-xs text-muted-foreground">
               <th className="w-10">
