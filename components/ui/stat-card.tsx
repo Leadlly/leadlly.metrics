@@ -41,11 +41,13 @@ export function Panel({
   action,
   children,
   className,
+  bodyClassName,
 }: {
   title?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  bodyClassName?: string;
 }) {
   return (
     <section
@@ -55,7 +57,7 @@ export function Panel({
       )}
     >
       {(title || action) && (
-        <header className="relative z-20 flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3 sm:px-5 sm:py-4">
+        <header className="relative z-20 flex shrink-0 items-center justify-between gap-3 border-b border-border/70 px-4 py-3 sm:px-5 sm:py-4">
           {title ? (
             <h2 className="min-w-0 truncate font-semibold">{title}</h2>
           ) : (
@@ -64,7 +66,7 @@ export function Panel({
           {action}
         </header>
       )}
-      <div className="p-4 sm:p-5">{children}</div>
+      <div className={cn("p-4 sm:p-5", bodyClassName)}>{children}</div>
     </section>
   );
 }

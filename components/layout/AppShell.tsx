@@ -121,8 +121,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-x-clip overflow-y-auto">
-        <main className="mx-auto w-full max-w-7xl px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <main className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-x-clip overflow-y-auto px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8">
           {children}
         </main>
       </div>

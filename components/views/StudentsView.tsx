@@ -372,7 +372,8 @@ export function StudentsView() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6">
+      <div className="shrink-0 space-y-4 sm:space-y-6">
       <PageHeader
         eyebrow="Student app"
         title="Students"
@@ -475,9 +476,12 @@ export function StudentsView() {
         <StatCard label="Active 7 days" value={data?.stats.active7d ?? 0} />
         <StatCard label="Active 30 days" value={data?.stats.active30d ?? 0} />
       </div>
+      </div>
 
       <Panel
         title="User list"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        bodyClassName="min-h-0 flex-1 overflow-hidden p-0 sm:p-0"
         action={
           <div className="flex items-center gap-3">
             {data ? (
@@ -499,9 +503,9 @@ export function StudentsView() {
         }
       >
         <TableFrame columnCount={columns.visibleColumns.length + 1} stickyHeader>
-          <thead className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur [&_th]:bg-transparent">
+          <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="w-10">
+              <th className="sticky top-0 z-10 w-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur">
                 <SelectAllCheckbox
                   checked={allSelected}
                   indeterminate={someSelected}
@@ -509,7 +513,10 @@ export function StudentsView() {
                 />
               </th>
               {selected.size > 0 ? (
-                <th colSpan={columns.visibleColumns.length}>
+                <th
+                  colSpan={columns.visibleColumns.length}
+                  className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur"
+                >
                   <div className="flex flex-wrap items-center gap-3 py-0.5 text-sm text-foreground">
                     <span className="font-medium">{selected.size} selected</span>
                     <LeadTagMenu count={selected.size} onTag={applyLeadTag} />
@@ -524,7 +531,12 @@ export function StudentsView() {
                 </th>
               ) : (
                 columns.visibleColumns.map((column) => (
-                  <th key={column.key}>{column.label}</th>
+                  <th
+                    key={column.key}
+                    className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur"
+                  >
+                    {column.label}
+                  </th>
                 ))
               )}
             </tr>
