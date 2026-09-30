@@ -5,14 +5,20 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download, Search } from "lucide-react";
 import { displayDateTime, displayDateValue, displayValue } from "@/lib/display";
-import { efficiencyOptions, efficiencyRowClass, previousDayEfficiency } from "@/lib/efficiency";
+import {
+  efficiencyOptions,
+  efficiencyRowClass,
+  matchesEfficiencyFilter,
+  previousDayEfficiency,
+} from "@/lib/efficiency";
 import { STUDENT_EXPORT_FIELDS } from "@/lib/fields";
 import { STUDENT_TABLE_COLUMNS } from "@/lib/columns";
-import { STUDENT_LEAD_TAGS, type LeadTag } from "@/lib/student-tags";
+import { type LeadTag } from "@/lib/student-tags";
 import { fullName, cn } from "@/lib/utils";
 import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { useStudentLeadTags } from "@/hooks/use-student-lead-tags";
-import { DateRangeFilter, PageHeader } from "@/components/ui/filters";
+import { PageHeader } from "@/components/ui/filters";
+import { StudentsFilterPopup } from "@/components/ui/students-filter-popup";
 import { downloadExport, ExportDialog } from "@/components/ui/export-dialog";
 import { ColumnPicker } from "@/components/ui/column-picker";
 import { TableFrame } from "@/components/ui/data-table";
@@ -22,7 +28,7 @@ import {
   RowCheckbox,
   SelectAllCheckbox,
 } from "@/components/ui/lead-tag-menu";
-import { Badge, Button, Input, Select } from "@/components/ui/primitives";
+import { Badge, Button, Input } from "@/components/ui/primitives";
 import { EmptyState, Panel, StatCard } from "@/components/ui/stat-card";
 
 type Student = {
@@ -70,11 +76,20 @@ type AppliedFilters = {
   category: string;
   onboard: string;
   leadTag: string;
+  efficiency: string;
 };
 
 const LIST_LIMIT = "10000";
 const FILTER_STORAGE_KEY = "metrics-students-filters";
-const FILTER_KEYS = ["from", "to", "q", "category", "onboard", "leadTag"] as const;
+const FILTER_KEYS = [
+  "from",
+  "to",
+  "q",
+  "category",
+  "onboard",
+  "leadTag",
+  "efficiency",
+] as const;
 
 function readFilters(params: URLSearchParams): AppliedFilters {
   return {
@@ -84,6 +99,7 @@ function readFilters(params: URLSearchParams): AppliedFilters {
     category: params.get("category") || "all",
     onboard: params.get("onboard") || "all",
     leadTag: params.get("leadTag") || "all",
+    efficiency: params.get("efficiency") || "all",
   };
 }
 
@@ -95,12 +111,13 @@ function filtersToParams(filters: AppliedFilters) {
   if (filters.category !== "all") params.set("category", filters.category);
   if (filters.onboard !== "all") params.set("onboard", filters.onboard);
   if (filters.leadTag !== "all") params.set("leadTag", filters.leadTag);
+  if (filters.efficiency !== "all") params.set("efficiency", filters.efficiency);
   return params;
 }
 
 function saveFilters(filters: AppliedFilters) {
   try {
-    sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
   } catch {
     // ignore quota / private mode
   }
@@ -108,17 +125,24 @@ function saveFilters(filters: AppliedFilters) {
 
 function loadSavedFilters(): AppliedFilters | null {
   try {
-    const raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+    const raw =
+      localStorage.getItem(FILTER_STORAGE_KEY) ||
+      sessionStorage.getItem(FILTER_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<AppliedFilters>;
-    return {
+    const filters: AppliedFilters = {
       from: parsed.from || "",
       to: parsed.to || "",
       q: parsed.q || "",
       category: parsed.category || "all",
       onboard: parsed.onboard || "all",
       leadTag: parsed.leadTag || "all",
+      efficiency: parsed.efficiency || "all",
     };
+    // Migrate older sessionStorage copies into localStorage.
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+    sessionStorage.removeItem(FILTER_STORAGE_KEY);
+    return filters;
   } catch {
     return null;
   }
@@ -320,7 +344,15 @@ export function StudentsView() {
     setSelected(new Set());
   }, [applied]);
 
-  const visibleIds = data?.rows.map((row) => row.id) || [];
+  const visibleRows = useMemo(() => {
+    const rows = data?.rows || [];
+    if (applied.efficiency === "all") return rows;
+    return rows.filter((row) =>
+      matchesEfficiencyFilter(row.previousDayOverall, applied.efficiency),
+    );
+  }, [applied.efficiency, data?.rows]);
+
+  const visibleIds = visibleRows.map((row) => row.id);
   const selectedOnPage = visibleIds.filter((id) => selected.has(id));
   const allSelected = visibleIds.length > 0 && selectedOnPage.length === visibleIds.length;
   const someSelected = selectedOnPage.length > 0 && !allSelected;
@@ -372,8 +404,7 @@ export function StudentsView() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden sm:gap-6">
-      <div className="shrink-0 space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         eyebrow="Student app"
         title="Students"
@@ -400,53 +431,21 @@ export function StudentsView() {
             className="pl-9"
           />
         </div>
-        <Select
-          value={applied.category}
-          className="w-32 shrink-0 sm:w-36"
-          onChange={(e) => {
-            commitFilters({ ...applied, category: e.target.value });
+        <StudentsFilterPopup
+          value={{
+            from: applied.from,
+            to: applied.to,
+            category: applied.category,
+            onboard: applied.onboard,
+            leadTag: applied.leadTag,
+            efficiency: applied.efficiency,
           }}
-        >
-          <option value="all">All</option>
-          <option value="free">Free</option>
-          <option value="subscription">Subscription</option>
-        </Select>
-        <Select
-          value={applied.onboard}
-          className="w-44 shrink-0 sm:w-48"
-          onChange={(e) => {
-            commitFilters({ ...applied, onboard: e.target.value });
-          }}
-        >
-          <option value="all">All DNA reports</option>
-          <option value="generated">DNA generated</option>
-          <option value="missing">DNA not generated</option>
-        </Select>
-        <Select
-          value={applied.leadTag}
-          className="w-40 shrink-0 sm:w-44"
-          onChange={(e) => {
-            commitFilters({ ...applied, leadTag: e.target.value });
-          }}
-        >
-          <option value="all">All lead tags</option>
-          <option value="untagged">Untagged</option>
-          {STUDENT_LEAD_TAGS.map((tag) => (
-            <option key={tag.id} value={tag.id}>
-              {tag.label}
-              {tagCounts[tag.id] ? ` (${tagCounts[tag.id]})` : ""}
-            </option>
-          ))}
-        </Select>
-        <DateRangeFilter
-          from={applied.from}
-          to={applied.to}
-          className="w-auto shrink-0"
-          onChange={(nextFrom, nextTo) => {
+          tagCounts={tagCounts}
+          onApply={(next) => {
             commitFilters({
               ...applied,
-              from: nextFrom,
-              to: nextTo,
+              ...next,
+              q,
             });
           }}
         />
@@ -476,19 +475,16 @@ export function StudentsView() {
         <StatCard label="Active 7 days" value={data?.stats.active7d ?? 0} />
         <StatCard label="Active 30 days" value={data?.stats.active30d ?? 0} />
       </div>
-      </div>
 
       <Panel
         title="User list"
-        className="flex min-h-0 flex-1 flex-col overflow-hidden"
-        bodyClassName="min-h-0 flex-1 overflow-hidden p-0 sm:p-0"
         action={
           <div className="flex items-center gap-3">
             {data ? (
               <span className="hidden text-xs text-muted-foreground sm:inline">
-                {data.rows.length === data.total
+                {visibleRows.length === (data.total || 0) && applied.efficiency === "all"
                   ? `${data.total} students`
-                  : `Showing ${data.rows.length} of ${data.total}`}
+                  : `Showing ${visibleRows.length} of ${data.total}`}
               </span>
             ) : null}
             <ColumnPicker
@@ -503,9 +499,9 @@ export function StudentsView() {
         }
       >
         <TableFrame columnCount={columns.visibleColumns.length + 1} stickyHeader>
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur [&_th]:bg-transparent">
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="sticky top-0 z-10 w-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur">
+              <th className="w-10">
                 <SelectAllCheckbox
                   checked={allSelected}
                   indeterminate={someSelected}
@@ -513,10 +509,7 @@ export function StudentsView() {
                 />
               </th>
               {selected.size > 0 ? (
-                <th
-                  colSpan={columns.visibleColumns.length}
-                  className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur"
-                >
+                <th colSpan={columns.visibleColumns.length}>
                   <div className="flex flex-wrap items-center gap-3 py-0.5 text-sm text-foreground">
                     <span className="font-medium">{selected.size} selected</span>
                     <LeadTagMenu count={selected.size} onTag={applyLeadTag} />
@@ -531,12 +524,7 @@ export function StudentsView() {
                 </th>
               ) : (
                 columns.visibleColumns.map((column) => (
-                  <th
-                    key={column.key}
-                    className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur"
-                  >
-                    {column.label}
-                  </th>
+                  <th key={column.key}>{column.label}</th>
                 ))
               )}
             </tr>
@@ -551,8 +539,8 @@ export function StudentsView() {
                   Loading students…
                 </td>
               </tr>
-            ) : data?.rows.length ? (
-              data.rows.map((row) => {
+            ) : visibleRows.length ? (
+              visibleRows.map((row) => {
                 const efficiency = previousDayEfficiency(row.previousDayOverall);
                 const isSelected = selected.has(row.id);
                 return (

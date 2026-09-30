@@ -47,9 +47,16 @@ function TopicRow({ topic }: { topic: PlannerTopic }) {
             .join(" · ")}
           {topic.questions ? ` · ${topic.questions} questions` : ""}
         </p>
+        {topic.reason ? (
+          <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
+            {topic.reason}
+          </p>
+        ) : null}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
-        <Badge tone={accuracyTone(topic.accuracy)}>{topic.accuracy}% accuracy</Badge>
+        <Badge tone={accuracyTone(topic.accuracy)}>
+          {topic.accuracy > 0 ? `${topic.accuracy}% quiz` : `${topic.mastery || 0}% mastery`}
+        </Badge>
         <Badge tone={statusTone(topic.status)}>{statusLabel(topic.status)}</Badge>
       </div>
     </li>
@@ -79,7 +86,7 @@ function TopicSection({
       {topics.length ? (
         <ul className="space-y-2">
           {topics.map((topic, index) => (
-            <TopicRow key={`${topic.id}-${index}`} topic={topic} />
+            <TopicRow key={`${topic.itemId || topic.id}-${index}`} topic={topic} />
           ))}
         </ul>
       ) : (
@@ -91,11 +98,67 @@ function TopicSection({
   );
 }
 
+function QuizSection({
+  weeklyQuiz,
+  chapters,
+}: {
+  weeklyQuiz: StudentPlanner["weeklyQuiz"];
+  chapters: PlannerDay["chapters"];
+}) {
+  if (!weeklyQuiz && !chapters.length) return null;
+  return (
+    <section>
+      <div className="mb-2">
+        <h3 className="text-sm font-semibold">Quizzes</h3>
+        <p className="text-xs text-muted-foreground">
+          Weekly and chapter quizzes from the new planner
+        </p>
+      </div>
+      <ul className="space-y-2">
+        {weeklyQuiz ? (
+          <li className="flex items-center justify-between gap-3 rounded-2xl bg-[#F8F4FE] px-3 py-3 sm:px-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Weekly quiz</p>
+              {weeklyQuiz.endDate ? (
+                <p className="text-xs text-muted-foreground">
+                  Due {displayDateValue(weeklyQuiz.endDate)}
+                </p>
+              ) : null}
+            </div>
+            <Badge tone={weeklyQuiz.attempted ? "green" : "amber"}>
+              {weeklyQuiz.attempted ? "attempted" : "open"}
+            </Badge>
+          </li>
+        ) : null}
+        {chapters.map((chapter) => (
+          <li
+            key={chapter.id}
+            className="flex items-center justify-between gap-3 rounded-2xl bg-[#F8F4FE] px-3 py-3 sm:px-4"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{prettyName(chapter.name)}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {[chapter.subject ? prettyName(chapter.subject) : "", "Chapter quiz"]
+                  .filter(Boolean)
+                  .join(" · ")}
+                {chapter.endDate ? ` · due ${displayDateValue(chapter.endDate)}` : ""}
+              </p>
+            </div>
+            <Badge tone={chapter.attempted ? "green" : "amber"}>
+              {chapter.attempted ? "attempted" : "open"}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function dayTopicNames(day: PlannerDay) {
   return [
     ...day.dailyRevision,
-    ...day.pendingRevision,
     ...day.accuracyRevision,
+    ...day.pendingRevision,
   ].map((topic) => prettyName(topic.name));
 }
 
@@ -111,7 +174,7 @@ export function StudentPlannerPanels({ planner }: { planner: StudentPlanner | nu
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-2">
       <Panel
-        title="Today's to-do list"
+        title="Today's planner"
         action={
           <span className="text-xs text-muted-foreground">
             {today
@@ -126,40 +189,41 @@ export function StudentPlannerPanels({ planner }: { planner: StudentPlanner | nu
           <div className="space-y-5">
             {!planner?.coversToday ? (
               <p className="rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                This week does not have a planner day for today. Accuracy topics
-                below come from the student&apos;s topic performance.
+                No planner items were generated for today yet.
               </p>
             ) : null}
             <TopicSection
-              title="Daily revision"
-              hint="Topics on today's planner"
+              title="Current learning"
+              hint="What the student logged / learned today"
               topics={today.dailyRevision}
-              empty="No daily revision topics for today."
+              empty="No current learning topics for today."
             />
             <TopicSection
-              title="Pending revision"
-              hint="Backlog topics scheduled today"
-              topics={today.pendingRevision}
-              empty="No pending revision topics for today."
-            />
-            <TopicSection
-              title="Accuracy based revision"
-              hint="Low-accuracy topics in the to-do list"
+              title="Accuracy revision"
+              hint="Weak topics scheduled by the planner"
               topics={today.accuracyRevision}
-              empty="No accuracy based revision topics yet."
+              empty="No accuracy revision topics for today."
             />
+            <TopicSection
+              title="Past revision"
+              hint="Memory / spaced revision due today"
+              topics={today.pendingRevision}
+              empty="No past revision topics for today."
+            />
+            <QuizSection weeklyQuiz={planner?.weeklyQuiz ?? null} chapters={today.chapters} />
           </div>
         ) : (
-          <EmptyState message="No daily to-do list for this student yet." />
+          <EmptyState message="No daily planner for this student yet." />
         )}
       </Panel>
 
       <Panel
-        title="Daily planner"
+        title="Planner days"
         action={
           planner ? (
             <span className="text-xs text-muted-foreground">
               {displayDateValue(planner.startDate)} – {displayDateValue(planner.endDate)}
+              {planner.algorithmVersion ? ` · ${planner.algorithmVersion}` : ""}
             </span>
           ) : null
         }
@@ -203,7 +267,7 @@ export function StudentPlannerPanels({ planner }: { planner: StudentPlanner | nu
                           </span>
                         </p>
                         <span className="text-xs font-medium">
-                          {names.length} topic{names.length === 1 ? "" : "s"}
+                          {day.completed}/{day.total}
                         </span>
                       </div>
                       <p
@@ -214,7 +278,7 @@ export function StudentPlannerPanels({ planner }: { planner: StudentPlanner | nu
                             : "text-muted-foreground",
                         )}
                       >
-                        {names.length ? names.join(" / ") : "No topics coming"}
+                        {names.length ? names.join(" / ") : "No topics"}
                       </p>
                     </button>
                   </li>
@@ -225,30 +289,36 @@ export function StudentPlannerPanels({ planner }: { planner: StudentPlanner | nu
             {selected ? (
               <div className="rounded-2xl border border-border/70 p-3 sm:p-4">
                 <p className="mb-3 text-sm font-semibold">
-                  {selected.isToday ? "Today" : selected.day}: topics coming
+                  {selected.isToday ? "Today" : selected.day}: planner items
                 </p>
                 <div className="space-y-4">
                   <TopicSection
-                    title="Daily revision"
+                    title="Current learning"
                     topics={selected.dailyRevision}
                     empty="None scheduled."
                   />
                   <TopicSection
-                    title="Pending revision"
-                    topics={selected.pendingRevision}
-                    empty="None scheduled."
-                  />
-                  <TopicSection
-                    title="Accuracy based revision"
+                    title="Accuracy revision"
                     topics={selected.accuracyRevision}
                     empty="None scheduled."
                   />
+                  <TopicSection
+                    title="Past revision"
+                    topics={selected.pendingRevision}
+                    empty="None scheduled."
+                  />
+                  {selected.isToday ? (
+                    <QuizSection
+                      weeklyQuiz={planner?.weeklyQuiz ?? null}
+                      chapters={selected.chapters}
+                    />
+                  ) : null}
                 </div>
               </div>
             ) : null}
           </div>
         ) : (
-          <EmptyState message="No daily planner topics are coming up yet." />
+          <EmptyState message="No planner items in the recent window yet." />
         )}
       </Panel>
     </div>
